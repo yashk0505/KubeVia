@@ -19,14 +19,6 @@ interface PlaygroundNode {
   pods: PodItem[];
 }
 
-interface Challenge {
-  id: number;
-  title: string;
-  description: string;
-  xp: number;
-  tasks: { id: string; text: string; completed: boolean }[];
-}
-
 const initialNodes: PlaygroundNode[] = [
   { id: "Node-A", name: "worker-pool-1", status: "ready", pods: [{ id: "web-01", type: "web" }, { id: "api-01", type: "api" }] },
   { id: "Node-B", name: "worker-pool-2", status: "ready", pods: [{ id: "worker-01", type: "worker" }] },
@@ -45,7 +37,6 @@ const appConfig: Record<AppType, { label: string; text: string; bg: string; bord
 };
 
 export default function PlaygroundPage() {
-  const [mode, setMode] = useState<"explore" | "challenges">("explore");
   const [nodes, setNodes] = useState<PlaygroundNode[]>(initialNodes);
   const [selectedType, setSelectedType] = useState<AppType>("web");
   const [traffic, setTraffic] = useState(20);
@@ -55,10 +46,6 @@ export default function PlaygroundPage() {
     { text: "Awaiting deployment instructions...", type: "info", time: "00:00:02" },
   ]);
   const [flashNodes, setFlashNodes] = useState<Record<string, boolean>>({});
-
-  // Challenge System State
-  const [currentChallengeId, setCurrentChallengeId] = useState(1);
-  const [userXp, setUserXp] = useState(250);
   const [showYamlEditor, setShowYamlEditor] = useState(false);
   const [yamlContent, setYamlContent] = useState<string>(
 `apiVersion: apps/v1
@@ -85,59 +72,6 @@ spec:
             memory: "128Mi"
             cpu: "200m"`
   );
-  const [challenges, setChallenges] = useState<Challenge[]>([
-    {
-      id: 1,
-      title: "Mission 1: High Availability Deployment",
-      description: "Deploy multiple web pods and verify self-healing when a node fails.",
-      xp: 100,
-      tasks: [
-        { id: "t1", text: "Deploy at least 4 total Pods across the cluster", completed: false },
-        { id: "t2", text: "Trigger Chaos to simulate node failure", completed: false },
-        { id: "t3", text: "Observe automatic self-healing pod rescheduling", completed: false },
-      ],
-    },
-    {
-      id: 2,
-      title: "Mission 2: Traffic Surge & Autoscale",
-      description: "Scale ingress traffic to trigger Horizontal Pod Autoscaler (HPA).",
-      xp: 150,
-      tasks: [
-        { id: "t2_1", text: "Increase Ingress Traffic slider above 70 req/s", completed: false },
-        { id: "t2_2", text: "Wait for HPA to automatically spawn web pods", completed: false },
-      ],
-    },
-    {
-      id: 3,
-      title: "Mission 3: Full Fleet Diversity",
-      description: "Deploy all 5 distinct workload types into the runtime.",
-      xp: 200,
-      tasks: [
-        { id: "t3_1", text: "Click 'Scale All' to deploy Web, API, Worker, Cache, and DB", completed: false },
-        { id: "t3_2", text: "Maintain all 6 worker nodes in Ready status", completed: false },
-      ],
-    },
-    {
-      id: 4,
-      title: "Mission 4: Node Maintenance & Drain",
-      description: "Take down a node for maintenance and migrate all pods safely.",
-      xp: 250,
-      tasks: [
-        { id: "t4_1", text: "Click status on Node-A to trigger node outage", completed: false },
-        { id: "t4_2", text: "Restore Node-A back to Ready status", completed: false },
-      ],
-    },
-    {
-      id: 5,
-      title: "Mission 5: Declarative YAML GitOps",
-      description: "Apply a custom manifest directly into the cluster runtime.",
-      xp: 300,
-      tasks: [
-        { id: "t5_1", text: "Open the YAML Manifest Editor", completed: false },
-        { id: "t5_2", text: "Click 'Apply Manifest (kubectl apply -f)'", completed: false },
-      ],
-    },
-  ]);
 
   // Refs for SVG line calculation
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -164,133 +98,103 @@ spec:
         if (!el) return;
         const nodeRect = el.getBoundingClientRect();
         const nx = nodeRect.left + nodeRect.width / 2 - canvasRect.left;
-        const ny = nodeRect.top - canvasRect.top + 4;
-        newLines.push({ x1: lx, y1: ly + lbRect.height / 2, x2: nx, y2: ny, nodeId: node.id });
+        const ny = nodeRect.top + nodeRect.height / 2 - canvasRect.top;
+        newLines.push({ x1: lx, y1: ly, x2: nx, y2: ny, nodeId: node.id });
       });
       setLines(newLines);
     };
+
     updateLines();
     window.addEventListener("resize", updateLines);
-    const t = setTimeout(updateLines, 100);
-    return () => { window.removeEventListener("resize", updateLines); clearTimeout(t); };
-  }, [nodes.length]);
-
-  // Periodic heartbeat pulse
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const readyNodes = nodes.filter((n) => n.status === "ready");
-      if (readyNodes.length > 0) {
-        const target = readyNodes[Math.floor(Math.random() * readyNodes.length)];
-        flashNode(target.id);
-      }
-    }, 2500);
-    return () => clearInterval(interval);
+    const t = setTimeout(updateLines, 200);
+    return () => {
+      window.removeEventListener("resize", updateLines);
+      clearTimeout(t);
+    };
   }, [nodes]);
 
-  // Challenge task verification observer
-  useEffect(() => {
-    const totalPods = nodes.flatMap((n) => n.pods).length;
-    const hasAllTypes = ["web", "api", "worker", "cache", "db"].every((t) =>
-      nodes.some((n) => n.pods.some((p) => p.type === t))
-    );
-    const allReady = nodes.every((n) => n.status === "ready");
-
-    setChallenges((prev) =>
-      prev.map((c) => {
-        if (c.id === 1) {
-          const updated = [...c.tasks];
-          if (totalPods >= 4) updated[0].completed = true;
-          return { ...c, tasks: updated };
-        }
-        if (c.id === 2) {
-          const updated = [...c.tasks];
-          if (traffic > 70) updated[0].completed = true;
-          if (traffic > 70 && totalPods > 5) updated[1].completed = true;
-          return { ...c, tasks: updated };
-        }
-        if (c.id === 3) {
-          const updated = [...c.tasks];
-          if (hasAllTypes) updated[0].completed = true;
-          if (allReady && hasAllTypes) updated[1].completed = true;
-          return { ...c, tasks: updated };
-        }
-        return c;
-      })
-    );
-  }, [nodes, traffic]);
-
+  // Flash node effect
   const flashNode = (nodeId: string) => {
     setFlashNodes((prev) => ({ ...prev, [nodeId]: true }));
-    setTimeout(() => setFlashNodes((prev) => ({ ...prev, [nodeId]: false })), 700);
+    setTimeout(() => setFlashNodes((prev) => ({ ...prev, [nodeId]: false })), 800);
   };
 
-  const findBestNode = (nodeList: PlaygroundNode[]) => {
-    const healthy = nodeList.filter((n) => n.status === "ready");
-    if (healthy.length === 0) return null;
-    return healthy.reduce((prev, curr) => (prev.pods.length < curr.pods.length ? prev : curr));
+  // Least loaded node selector
+  const findBestNode = (currentNodes: PlaygroundNode[]): PlaygroundNode | null => {
+    const ready = currentNodes.filter((n) => n.status === "ready");
+    if (ready.length === 0) return null;
+    return ready.reduce((min, n) => (n.pods.length < min.pods.length ? n : min), ready[0]);
   };
 
+  // Deploy single pod
   const handleDeploy = () => {
     const bestNode = findBestNode(nodes);
-    if (!bestNode) { addLog("Scheduler: No Ready nodes available.", "error"); return; }
-    const podId = `${selectedType}-${Math.random().toString(36).substring(2, 6)}`;
-    setNodes((prev) => prev.map((n) => (n.id === bestNode.id ? { ...n, pods: [...n.pods, { id: podId, type: selectedType }] } : n)));
-    addLog(`Scheduler: Placed ${podId} → ${bestNode.id} (LeastAllocated)`, "success");
+    if (!bestNode) {
+      addLog("Deployment Failed: No nodes in Ready status.", "error");
+      return;
+    }
+    const newId = `${selectedType}-${Math.random().toString(36).substring(2, 5)}`;
+    setNodes((prev) =>
+      prev.map((n) => (n.id === bestNode.id ? { ...n, pods: [...n.pods, { id: newId, type: selectedType }] } : n))
+    );
     flashNode(bestNode.id);
+    addLog(`Scheduled ${newId} (${selectedType.toUpperCase()}) → ${bestNode.name}`, "info");
   };
 
-  const handleDeletePod = (nodeId: string, podId: string) => {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, pods: n.pods.filter((p) => p.id !== podId) } : n)));
-    addLog(`Kubelet: Terminated pod ${podId} on ${nodeId}`, "warn");
+  // Kill pod
+  const handleKillPod = (nodeId: string, podId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNodes((prev) =>
+      prev.map((n) => (n.id === nodeId ? { ...n, pods: n.pods.filter((p) => p.id !== podId) } : n))
+    );
+    addLog(`Terminated ${podId} on ${nodeId}`, "warn");
   };
 
+  // Toggle node status / self-healing
   const handleToggleNode = (nodeId: string) => {
     const target = nodes.find((n) => n.id === nodeId);
     if (!target) return;
-    if (target.status === "ready") {
-      const movingPods = [...target.pods];
-      addLog(`NodeController: ${nodeId} → NotReady (Failure Simulated)`, "error");
-      
-      // Update challenge 1 task
-      setChallenges((prev) =>
-        prev.map((c) =>
-          c.id === 1 ? { ...c, tasks: c.tasks.map((t, idx) => (idx === 1 ? { ...t, completed: true } : t)) } : c
-        )
-      );
-
+    const isGoingOffline = target.status === "ready";
+    if (isGoingOffline) {
+      const evictedPods = [...target.pods];
       setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, status: "offline", pods: [] } : n)));
-      if (movingPods.length > 0) {
-        addLog(`EvictionManager: Evicting ${movingPods.length} pods from ${nodeId}...`, "warn");
+      addLog(`Node Failure: ${target.name} is NotReady. Evicting ${evictedPods.length} pods...`, "error");
+
+      // Reschedule evicted pods
+      if (evictedPods.length > 0) {
         setTimeout(() => {
           setNodes((currentNodes) => {
-            let rescheduledCount = 0;
-            const updated = currentNodes.map((node) => ({ ...node, pods: [...node.pods] }));
-            movingPods.forEach((pod) => {
-              const best = findBestNode(updated);
-              if (best) { best.pods.push(pod); rescheduledCount++; flashNode(best.id); }
-            });
-            if (rescheduledCount > 0) {
-              addLog(`Scheduler: Self-healed ${rescheduledCount} pods to healthy nodes.`, "success");
-              setChallenges((ch) =>
-                ch.map((c) =>
-                  c.id === 1 ? { ...c, tasks: c.tasks.map((t, idx) => (idx === 2 ? { ...t, completed: true } : t)) } : c
-                )
-              );
-            } else {
-              addLog("Scheduler: Failed to reschedule pods. Cluster full.", "error");
+            const available = currentNodes.filter((n) => n.id !== nodeId && n.status === "ready");
+            if (available.length === 0) {
+              addLog(`Self-Healing Failed: No available Ready nodes to reschedule ${evictedPods.length} pods.`, "error");
+              return currentNodes;
             }
+            const updated = currentNodes.map((n) => ({ ...n, pods: [...n.pods] }));
+            evictedPods.forEach((pod) => {
+              const best = available.reduce((min, n) => {
+                const updatedNode = updated.find((un) => un.id === n.id)!;
+                const minNode = updated.find((un) => un.id === min.id)!;
+                return updatedNode.pods.length < minNode.pods.length ? n : min;
+              }, available[0]);
+              const targetNode = updated.find((n) => n.id === best.id);
+              if (targetNode) {
+                targetNode.pods.push(pod);
+                flashNode(best.id);
+                addLog(`Self-Healing: Rescheduled ${pod.id} → ${targetNode.name}`, "success");
+              }
+            });
             return updated;
           });
-        }, 1200);
+        }, 900);
       }
     } else {
       setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, status: "ready" } : n)));
-      addLog(`NodeController: ${nodeId} rejoined cluster. Status: Ready`, "success");
+      addLog(`Node Recovered: ${target.name} is Ready. Kubelet connected.`, "success");
       flashNode(nodeId);
     }
   };
 
-  // Chaos: kill random node
+  // Chaos: simulate random node failure
   const handleChaos = () => {
     const readyNodes = nodes.filter((n) => n.status === "ready");
     if (readyNodes.length === 0) { addLog("Chaos: No ready nodes to disrupt.", "error"); return; }
@@ -348,71 +252,65 @@ spec:
   const handleDrop = (e: React.DragEvent, toNodeId: string) => {
     e.preventDefault();
     try {
-      const { podId, fromNodeId } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+      const { podId, fromNodeId } = data;
       if (fromNodeId === toNodeId) return;
       const targetNode = nodes.find((n) => n.id === toNodeId);
-      if (!targetNode || targetNode.status !== "ready") { addLog(`Scheduler: Cannot schedule on ${toNodeId} (NotReady)`, "error"); return; }
-      setNodes((prev) => {
-        let movedPod: PodItem | undefined;
-        const next = prev.map((n) => { if (n.id === fromNodeId) { movedPod = n.pods.find((p) => p.id === podId); return { ...n, pods: n.pods.filter((p) => p.id !== podId) }; } return n; });
-        if (movedPod) {
-          addLog(`Admin: Migrated ${podId} → ${toNodeId}`, "info");
-          flashNode(toNodeId);
-          return next.map((n) => (n.id === toNodeId ? { ...n, pods: [...n.pods, movedPod!] } : n));
-        }
-        return prev;
-      });
-    } catch { /* ignore */ }
+      if (!targetNode || targetNode.status !== "ready") {
+        addLog(`Cannot migrate to ${toNodeId}: Node is offline.`, "error");
+        return;
+      }
+      let movedPod: PodItem | undefined;
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id === fromNodeId) {
+            movedPod = n.pods.find((p) => p.id === podId);
+            return { ...n, pods: n.pods.filter((p) => p.id !== podId) };
+          }
+          return n;
+        }).map((n) => {
+          if (n.id === toNodeId && movedPod) {
+            return { ...n, pods: [...n.pods, movedPod] };
+          }
+          return n;
+        })
+      );
+      flashNode(toNodeId);
+      addLog(`Manual Migration: Moved ${podId} from ${fromNodeId} → ${toNodeId}`, "info");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  // Reset fleet
   const handleReset = () => {
     setNodes(initialNodes);
     setTraffic(20);
-    addLog("Cluster Admin: Full reset. All namespaces restored.", "warn");
+    addLog("Fleet Reset to clean default topology.", "info");
   };
 
-  // Computed stats
-  const totalPods = nodes.flatMap((n) => n.pods).length;
+  const totalPods = nodes.reduce((sum, n) => sum + n.pods.length, 0);
   const readyCount = nodes.filter((n) => n.status === "ready").length;
-  const avgCpu = nodes.length ? Math.floor(nodes.reduce((acc, n) => acc + (n.status === "ready" ? Math.min(100, (n.pods.length / 8) * 100) : 0), 0) / nodes.length) : 0;
-
-  const currentChallenge = challenges.find((c) => c.id === currentChallengeId) || challenges[0];
 
   return (
     <main className="min-h-screen bg-[#050608] text-[#e2e2e8] overflow-x-hidden">
       <Nav />
 
       <div className="pt-24 pb-16 px-6 max-w-7xl mx-auto space-y-6">
-        {/* Mode Selector & Summary Bar */}
+        {/* Top Summary & Status Bar */}
         <div className="glass-panel rounded-2xl p-4 border border-white/10 tech-border flex flex-wrap gap-4 items-center justify-between font-mono text-sm">
           <div className="flex items-center gap-3">
-            <div className="flex bg-surface-container p-1 rounded-xl border border-white/10 font-mono text-xs">
-              <button
-                onClick={() => setMode("explore")}
-                className={`px-4 py-1.5 rounded-lg transition-all ${
-                  mode === "explore"
-                    ? "bg-primary text-black font-bold shadow-[0_0_12px_rgba(0,210,255,0.4)]"
-                    : "text-on-surface-variant hover:text-white"
-                }`}
-              >
-                🕹️ Explore Sandbox
-              </button>
-              <button
-                onClick={() => setMode("challenges")}
-                className={`px-4 py-1.5 rounded-lg transition-all ${
-                  mode === "challenges"
-                    ? "bg-desired-state text-white font-bold shadow-[0_0_12px_rgba(189,0,255,0.4)]"
-                    : "text-on-surface-variant hover:text-white"
-                }`}
-              >
-                🏆 Guided Challenges
-              </button>
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-bold shadow-[0_0_15px_rgba(0,210,255,0.2)]">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span>🕹️ EXPLORE SANDBOX</span>
             </div>
-
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-desired-state/15 border border-desired-state/30 text-desired-state text-xs font-bold">
-              <span>⭐</span>
-              <span>{userXp} XP EARNED</span>
-            </div>
+            <span className="text-xs text-on-surface-variant hidden md:inline">
+              Interactive Cluster Fleet &amp; Declarative GitOps
+            </span>
           </div>
 
           <div className="flex items-center gap-6">
@@ -430,61 +328,6 @@ spec:
             </div>
           </div>
         </div>
-
-        {/* ══════════ CHALLENGES HUD (If in Challenges Mode) ══════════ */}
-        {mode === "challenges" && (
-          <div className="glass-panel rounded-2xl p-6 border border-desired-state/40 tech-border space-y-4 animate-fadeIn shadow-[0_0_25px_rgba(189,0,255,0.15)]">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-4">
-              <div>
-                <div className="text-desired-state font-mono text-xs font-bold uppercase tracking-wide">
-                  ACTIVE CHALLENGE MISSION
-                </div>
-                <h2 className="font-display text-xl font-bold text-white mt-0.5">
-                  {currentChallenge.title}
-                </h2>
-                <p className="font-sans text-xs text-on-surface-variant mt-1">
-                  {currentChallenge.description}
-                </p>
-              </div>
-
-              {/* Challenge Selector */}
-              <div className="flex gap-2 font-mono text-xs">
-                {challenges.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setCurrentChallengeId(c.id)}
-                    className={`px-3 py-1.5 rounded-lg border transition-all ${
-                      currentChallengeId === c.id
-                        ? "bg-desired-state/20 border-desired-state text-desired-state font-bold shadow-[0_0_12px_rgba(189,0,255,0.3)]"
-                        : "bg-surface-container border-white/10 text-on-surface-variant hover:text-white"
-                    }`}
-                  >
-                    Mission {c.id}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Task Checklist */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {currentChallenge.tasks.map((task, idx) => (
-                <div
-                  key={task.id}
-                  className={`p-3.5 rounded-xl border font-mono text-xs flex items-center gap-3 transition-all ${
-                    task.completed
-                      ? "bg-success-glow/15 border-success-glow text-success-glow shadow-[0_0_15px_rgba(0,255,194,0.2)]"
-                      : "bg-black/40 border-white/10 text-on-surface-variant"
-                  }`}
-                >
-                  <span className="text-base">{task.completed ? "✓" : "○"}</span>
-                  <span className={task.completed ? "font-bold text-white" : ""}>
-                    {idx + 1}. {task.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Controls Row */}
         <div className="glass-panel rounded-2xl p-5 border border-white/10 tech-border flex flex-col xl:flex-row justify-between items-start xl:items-center gap-5">
@@ -514,14 +357,7 @@ spec:
             </div>
 
             <button
-              onClick={() => {
-                setShowYamlEditor(!showYamlEditor);
-                setChallenges((prev) =>
-                  prev.map((c) =>
-                    c.id === 5 ? { ...c, tasks: c.tasks.map((t, idx) => (idx === 0 ? { ...t, completed: true } : t)) } : c
-                  )
-                );
-              }}
+              onClick={() => setShowYamlEditor(!showYamlEditor)}
               className={`px-3 py-1.5 rounded-lg border font-mono text-xs font-bold transition-all ${
                 showYamlEditor
                   ? "bg-cyan text-black border-cyan"
@@ -554,11 +390,6 @@ spec:
                 onClick={() => {
                   handleScaleAll();
                   addLog("GitOps: Applied deployment.yaml via kubectl apply -f. 4 replicas synced.", "success");
-                  setChallenges((prev) =>
-                    prev.map((c) =>
-                      c.id === 5 ? { ...c, tasks: c.tasks.map((t, idx) => (idx === 1 ? { ...t, completed: true } : t)) } : c
-                    )
-                  );
                 }}
                 className="px-4 py-2 rounded-lg bg-cyan text-black font-mono text-xs font-bold uppercase hover:bg-cyan/80 transition-all shadow-[0_0_15px_rgba(0,210,255,0.3)]"
               >
@@ -589,39 +420,24 @@ spec:
             </defs>
             {lines.map((line) => {
               const node = nodes.find((n) => n.id === line.nodeId);
-              const isReady = node?.status === "ready";
-              const isPulsing = flashNodes[line.nodeId];
-              const hasPods = (node?.pods.length || 0) > 0;
-              const strokeColor = !isReady ? "#FF005C" : "#00D2FF";
-              const particleSpeed = Math.max(0.8, 3 - traffic / 40);
-
+              const isOffline = node?.status === "offline";
               return (
                 <g key={line.nodeId}>
-                  {/* Base connection line */}
                   <line
                     x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2}
-                    stroke={strokeColor}
-                    strokeWidth={isPulsing ? 2.5 : 1}
-                    strokeOpacity={isPulsing ? 0.9 : !isReady ? 0.2 : hasPods ? 0.4 : 0.15}
-                    strokeDasharray={!isReady ? "6 6" : "4 4"}
-                    style={{ transition: "all 0.3s" }}
-                  >
-                    {isReady && (
-                      <animate attributeName="stroke-dashoffset" from="16" to="0" dur={`${particleSpeed}s`} repeatCount="indefinite" />
-                    )}
-                  </line>
-
-                  {/* Traffic particle flowing down (LB → Node) */}
-                  {isReady && hasPods && (
-                    <circle r={isPulsing ? 5 : 3} fill={strokeColor} opacity={isPulsing ? 1 : 0.6} filter={isPulsing ? "url(#lb-glow)" : undefined}>
-                      <animateMotion dur={`${particleSpeed}s`} repeatCount="indefinite" path={`M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`} />
-                    </circle>
-                  )}
-
-                  {/* Response particle flowing up (Node → LB) */}
-                  {isReady && hasPods && (
-                    <circle r="2" fill="#00FFC2" opacity="0.35">
-                      <animateMotion dur={`${particleSpeed + 1}s`} repeatCount="indefinite" path={`M ${line.x2} ${line.y2} L ${line.x1} ${line.y1}`} />
+                    stroke={isOffline ? "#ff005c" : "#00d2ff"}
+                    strokeWidth={isOffline ? "1" : "1.5"}
+                    strokeOpacity={isOffline ? 0.2 : 0.45}
+                    strokeDasharray={isOffline ? "4 4" : undefined}
+                    filter={isOffline ? undefined : "url(#lb-glow)"}
+                  />
+                  {!isOffline && (
+                    <circle r="3" fill="#00ffc2" opacity="0.85">
+                      <animateMotion
+                        dur={`${Math.max(0.6, 2.5 - traffic * 0.02)}s`}
+                        repeatCount="indefinite"
+                        path={`M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`}
+                      />
                     </circle>
                   )}
                 </g>
@@ -629,120 +445,105 @@ spec:
             })}
           </svg>
 
-          {/* ── LOAD BALANCER HUB ── */}
-          <div className="flex justify-center pt-6 pb-3 relative z-10">
-            <div ref={lbRef} className="relative">
-              <div className="relative w-32 h-32 rounded-full border border-data-flow/30 bg-[#0d0f14] flex items-center justify-center shadow-[0_0_35px_rgba(0,210,255,0.15)]">
-                <div className="absolute inset-0 rounded-full border border-data-flow/15 animate-[ping_4s_ease-in-out_infinite]" />
-                <div className="text-center z-10">
-                  <div className="font-mono text-xs text-data-flow font-bold tracking-wider">INGRESS</div>
-                  <div className="font-mono text-[10px] text-on-surface-variant">LOAD BALANCER</div>
-                  <div className="font-mono text-[10px] text-data-flow mt-1">{traffic} req/s</div>
-                </div>
-
-                {/* Satellite badges */}
-                <div className="absolute -top-2 -left-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high border border-success-glow/40 font-mono text-[8px] font-bold text-success-glow shadow-[0_0_8px_rgba(0,255,194,0.3)]">
-                  L4
-                </div>
-                <div className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high border border-primary/40 font-mono text-[8px] font-bold text-primary shadow-[0_0_8px_rgba(165,231,255,0.3)]">
-                  L7
-                </div>
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-high border border-desired-state/40 font-mono text-[8px] font-bold text-desired-state shadow-[0_0_8px_rgba(189,0,255,0.3)]">
-                  TLS
-                </div>
+          {/* Canvas Content */}
+          <div className="relative z-10 p-6 sm:p-8 flex flex-col items-center gap-8">
+            {/* Top Load Balancer / Ingress Node */}
+            <div ref={lbRef} className="glass-panel rounded-2xl px-6 py-3 border border-primary/50 flex items-center gap-3 shadow-[0_0_25px_rgba(0,210,255,0.25)]">
+              <span className="text-xl">🌐</span>
+              <div className="font-mono text-xs">
+                <span className="text-primary font-bold">K8s Ingress Controller</span>
+                <span className="text-on-surface-variant text-[10px] block">Round-Robin Traffic Dispatcher</span>
               </div>
-            </div>
-          </div>
-
-          {/* ── WORKER NODES ── */}
-          <div className="px-5 pb-5 pt-3 relative z-10">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <span className="font-mono text-xs text-primary font-bold">WORKER FLEET</span>
-              <div className="flex gap-2">
-                {(Object.entries(appConfig) as [AppType, typeof appConfig[AppType]][]).map(([type, conf]) => (
-                  <div key={type} className="flex items-center gap-1">
-                    <div className={`w-1.5 h-1.5 rounded-full ${conf.bg.replace("/20", "")}`} />
-                    <span className="font-mono text-[9px] uppercase text-on-surface-variant">{conf.label}</span>
-                  </div>
-                ))}
-              </div>
+              <span className="font-mono text-xs text-data-flow font-bold ml-2 bg-primary/10 px-2 py-0.5 rounded border border-primary/30">
+                {traffic} req/s
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Worker Nodes Grid */}
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {nodes.map((node) => {
-                const maxPods = 8;
-                const cpuUsage = node.status === "ready" ? Math.min(100, (node.pods.length / maxPods) * 100) : 0;
-                const memUsage = node.status === "ready" ? Math.min(100, (node.pods.length / maxPods) * 80 + 10) : 0;
                 const isOffline = node.status === "offline";
-                const isPulsing = flashNodes[node.id];
-                const cpuWarning = cpuUsage > 75;
-
+                const isFlashing = flashNodes[node.id];
+                const cpuUsage = Math.min(100, node.pods.length * 25);
                 return (
                   <div
                     key={node.id}
                     ref={(el) => { nodeRefs.current[node.id] = el; }}
-                    onDragOver={(e) => e.preventDefault()}
+                    onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, node.id)}
-                    className={`glass-panel relative rounded-xl p-4 border flex flex-col gap-2.5 min-h-[220px] transition-all duration-300 overflow-hidden ${
-                      isOffline ? "border-error-pulse/40 opacity-75" :
-                      isPulsing ? "border-data-flow/60 shadow-[0_0_15px_rgba(0,210,255,0.15)]" :
-                      "border-white/10 hover:border-white/20"
+                    className={`rounded-2xl p-5 border transition-all duration-300 relative ${
+                      isOffline
+                        ? "border-error-pulse/40 bg-error-pulse/5 opacity-60"
+                        : isFlashing
+                        ? "border-primary bg-primary/15 shadow-[0_0_30px_rgba(0,210,255,0.4)]"
+                        : "glass-panel border-white/10 hover:border-white/20"
                     }`}
                   >
-                    {/* Offline overlay */}
-                    {isOffline && (
-                      <div className="absolute inset-0 pointer-events-none opacity-10" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,0,92,0.2) 10px, rgba(255,0,92,0.2) 20px)" }} />
-                    )}
-
-                    {/* Heartbeat flash */}
-                    {isPulsing && <div className="absolute inset-0 bg-data-flow/5 pointer-events-none animate-pulse rounded-xl" />}
-
-                    <div className="flex justify-between items-start relative z-10">
+                    {/* Node Header */}
+                    <div className="flex justify-between items-center mb-3">
                       <div>
-                        <div className="font-mono text-xs font-bold text-primary">{node.id}</div>
-                        <div className="font-mono text-[10px] text-on-surface-variant">{node.name}</div>
+                        <div className="font-mono text-xs font-bold text-white flex items-center gap-2">
+                          <span>{node.id}</span>
+                          <span className="text-[10px] text-on-surface-variant font-normal">({node.name})</span>
+                        </div>
                       </div>
-                      <button onClick={() => handleToggleNode(node.id)}
-                        className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container border border-white/5 hover:border-white/20 transition-colors font-mono text-[10px]"
+                      <button
+                        onClick={() => handleToggleNode(node.id)}
+                        className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                          isOffline
+                            ? "bg-error-pulse/20 text-error-pulse border-error-pulse/40 hover:bg-error-pulse/30"
+                            : "bg-success-glow/15 text-success-glow border-success-glow/30 hover:bg-error-pulse/15 hover:text-error-pulse hover:border-error-pulse/30"
+                        }`}
+                        title={isOffline ? "Click to recover node" : "Click to simulate node failure"}
                       >
-                        <span className={`h-2 w-2 rounded-full ${isOffline ? "bg-error-pulse" : "bg-success-glow pulse-dot"}`} />
-                        <span className={isOffline ? "text-error-pulse" : "text-success-glow"}>{isOffline ? "NotReady" : "Ready"}</span>
+                        {isOffline ? "✕ NotReady (Click to Recover)" : "● Ready"}
                       </button>
                     </div>
 
-                    {/* CPU / MEM */}
-                    <div className="space-y-1 font-mono text-[10px] text-on-surface-variant relative z-10">
-                      <div className="flex justify-between">
-                        <span>CPU</span>
-                        <span className={cpuWarning ? "text-error-pulse" : ""}>{cpuUsage.toFixed(0)}%</span>
+                    {/* Metrics Bar */}
+                    <div className="space-y-1 mb-4 font-mono text-[10px]">
+                      <div className="flex justify-between text-on-surface-variant">
+                        <span>CPU Allocation</span>
+                        <span>{cpuUsage}%</span>
                       </div>
-                      <div className="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                        <div className={`h-full transition-all duration-300 rounded-full ${cpuWarning ? "bg-error-pulse" : "bg-primary"}`} style={{ width: `${cpuUsage}%` }} />
-                      </div>
-                      <div className="flex justify-between pt-0.5">
-                        <span>MEM</span>
-                        <span>{memUsage.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                        <div className="h-full bg-secondary transition-all duration-300 rounded-full" style={{ width: `${memUsage}%` }} />
+                      <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 rounded-full ${
+                            cpuUsage > 80 ? "bg-error-pulse" : cpuUsage > 50 ? "bg-amber-400" : "bg-primary"
+                          }`}
+                          style={{ width: `${cpuUsage}%` }}
+                        />
                       </div>
                     </div>
 
-                    {/* Pods (Dropzone) */}
-                    <div className="flex-1 rounded bg-black/40 border border-dashed border-white/10 p-2 overflow-y-auto flex flex-wrap content-start gap-1.5 relative z-10 min-h-[60px]">
-                      {node.pods.map((pod) => {
-                        const conf = appConfig[pod.type] || appConfig.web;
-                        return (
-                          <div key={pod.id} draggable onDragStart={(e) => handleDragStart(e, pod.id, node.id)}
-                            className={`${conf.bg} ${conf.border} border rounded px-2 py-0.5 flex items-center justify-between gap-1 w-[calc(50%-0.25rem)] group cursor-grab active:cursor-grabbing`}
-                          >
-                            <span className={`font-mono text-[9px] font-bold ${conf.text} truncate`}>{pod.id}</span>
-                            <button onClick={() => handleDeletePod(node.id, pod.id)} className="opacity-0 group-hover:opacity-100 text-error-pulse hover:text-white text-[10px] transition-opacity">✕</button>
-                          </div>
-                        );
-                      })}
-                      {node.pods.length === 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] text-white/20 pointer-events-none">Drop Pods Here</div>
+                    {/* Pods Container */}
+                    <div className="min-h-[110px] rounded-xl bg-black/40 border border-white/5 p-3 flex flex-wrap gap-2 content-start">
+                      {node.pods.length === 0 ? (
+                        <div className="w-full h-full flex items-center justify-center font-mono text-[10px] text-on-surface-variant py-6">
+                          {isOffline ? "Node Offline" : "Drop Pods Here"}
+                        </div>
+                      ) : (
+                        node.pods.map((pod) => {
+                          const conf = appConfig[pod.type];
+                          return (
+                            <div
+                              key={pod.id}
+                              draggable={!isOffline}
+                              onDragStart={(e) => handleDragStart(e, pod.id, node.id)}
+                              className={`group/pod cursor-grab active:cursor-grabbing px-2.5 py-1 rounded-lg border font-mono text-xs flex items-center gap-1.5 transition-all ${conf.bg} ${conf.border} ${conf.text} hover:scale-105`}
+                              title="Drag to move pod"
+                            >
+                              <span className="text-[10px] font-bold">{pod.id}</span>
+                              <button
+                                onClick={(e) => handleKillPod(node.id, pod.id, e)}
+                                className="opacity-40 group-hover/pod:opacity-100 hover:text-error-pulse transition-opacity text-[10px] ml-1"
+                                title="Kill Pod"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -752,31 +553,43 @@ spec:
           </div>
         </div>
 
-        {/* Event Stream */}
-        <div className="glass-panel rounded-2xl border border-white/10 flex flex-col max-h-[280px] overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center justify-between bg-surface-bright/20 shrink-0">
-            <div className="flex items-center gap-2 font-mono text-xs font-bold text-primary">
-              <span>⚡</span><span>CLUSTER EVENT STREAM</span>
-            </div>
-            <span className="h-2 w-2 rounded-full bg-primary animate-ping" />
+        {/* Live Logs Terminal */}
+        <div className="glass-panel rounded-2xl p-4 border border-white/10 tech-border font-mono text-xs space-y-2">
+          <div className="flex justify-between items-center border-b border-white/10 pb-2">
+            <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              <span>CLUSTER TELEMETRY EVENT LOG</span>
+            </span>
+            <button
+              onClick={() => setLogs([])}
+              className="text-[10px] text-on-surface-variant hover:text-white transition-colors"
+            >
+              Clear Logs
+            </button>
           </div>
-          <div className="flex-1 p-4 font-mono text-[11px] leading-5 overflow-y-auto terminal-scroll space-y-1 bg-black/50">
-            {logs.map((item, idx) => {
-              let color = "text-on-surface-variant";
-              if (item.type === "success") color = "text-success-glow";
-              if (item.type === "warn") color = "text-amber-400";
-              if (item.type === "error") color = "text-error-pulse";
-              if (item.type === "info") color = "text-primary";
-              return (
-                <div key={idx} className={color}>
-                  <span className="opacity-40">[{item.time}]</span> {item.text}
-                </div>
-              );
-            })}
+          <div className="space-y-1 max-h-40 overflow-y-auto pr-2">
+            {logs.map((log, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-[11px] leading-relaxed">
+                <span className="text-on-surface-variant text-[10px] select-none">{log.time}</span>
+                <span
+                  className={
+                    log.type === "success"
+                      ? "text-success-glow"
+                      : log.type === "error"
+                      ? "text-error-pulse"
+                      : log.type === "warn"
+                      ? "text-amber-400"
+                      : "text-primary"
+                  }
+                >
+                  {log.text}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Bottom Module Navigation */}
+        {/* Bottom Navigation */}
         <div className="border-t border-white/10 pt-8 flex justify-between items-center font-mono text-xs">
           <Link
             href="/topology"
@@ -787,9 +600,9 @@ spec:
           </Link>
           <Link
             href="/explore"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30 hover:border-primary transition-all font-bold module-nav-card shadow-[0_0_15px_rgba(0,210,255,0.25)]"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/15 border border-primary/40 text-primary hover:bg-primary/25 hover:border-primary transition-all font-bold module-nav-card shadow-[0_0_15px_rgba(0,210,255,0.2)]"
           >
-            <span>Restart Journey: Explore</span>
+            <span>Restart Odyssey</span>
             <span>↺</span>
           </Link>
         </div>

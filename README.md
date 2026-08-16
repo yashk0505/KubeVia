@@ -52,7 +52,7 @@ KUBEVIA
 └── 06. SANDBOX MATRIX (/playground)
     ├── Explore Sandbox: Load Balancer hub, traffic generator, drag-and-drop pods, chaos.
     ├── Declarative GitOps Editor: Live in-browser YAML editor with kubectl apply -f sync.
-    └── 5 Guided Missions: HA Self-healing, Traffic Surges, Diversity, Node Drain, GitOps.
+    └── Multi-Node Fleet: 6-node live cluster with HPA autoscaling & auto-healing.
 ```
 
 ---

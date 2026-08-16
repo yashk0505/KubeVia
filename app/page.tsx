@@ -73,10 +73,10 @@ export default function HomePage() {
       num: "06",
       title: "Sandbox Matrix",
       href: "/playground",
-      desc: "Free-form cluster sandbox with live YAML manifest editor & 5 guided challenge missions.",
+      desc: "Free-form cluster sandbox with live YAML manifest editor, chaos injection & traffic scaling.",
       color: "border-amber-400/40 text-amber-400 hover:border-amber-400",
       glow: "hover:shadow-[0_0_25px_rgba(245,158,11,0.2)]",
-      badge: "5 MISSIONS",
+      badge: "FREE SANDBOX",
       icon: "🕹️",
     },
   ];
@@ -309,7 +309,7 @@ export default function HomePage() {
             <div className="text-3xl text-amber-400">🕹️</div>
             <h3 className="font-display text-lg font-bold text-white">Interactive Sandbox &amp; GitOps</h3>
             <p className="font-sans text-xs text-on-surface-variant leading-relaxed">
-              Edit live YAML manifests with <code className="text-white">kubectl apply -f</code> syncing, inject chaos node outages, and solve 5 guided missions.
+              Edit live YAML manifests with <code className="text-white">kubectl apply -f</code> syncing, inject chaos node outages, and test multi-tier microservice pods.
             </p>
             <div className="font-mono text-xs text-amber-400 font-bold pt-2 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
               Enter Sandbox →
