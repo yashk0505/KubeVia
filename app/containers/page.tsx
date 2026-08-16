@@ -87,7 +87,48 @@ export default function ContainersPage() {
   const [isOomKilled, setIsOomKilled] = useState(false);
 
   // Architecture Benchmark State
-  const [instanceCount, setInstanceCount] = useState(15);
+  const [instanceCount, setInstanceCount] = useState(14);
+  const [bootRaceRunning, setBootRaceRunning] = useState(false);
+  const [containerBootDone, setContainerBootDone] = useState(false);
+  const [vmBootProgress, setVmBootProgress] = useState(0);
+  const [vmBootStage, setVmBootStage] = useState("Idle (Click Run Race)");
+
+  const handleStartBootRace = () => {
+    if (bootRaceRunning) return;
+    setBootRaceRunning(true);
+    setContainerBootDone(false);
+    setVmBootProgress(5);
+    setVmBootStage("1/4: Initializing Virtual BIOS & ACPI...");
+
+    // Container boots in ~45ms!
+    setTimeout(() => {
+      setContainerBootDone(true);
+      addCliLog(`⚡ Boot Benchmark: ${instanceCount} Linux Containers launched in 42ms (Process Fork).`);
+    }, 150);
+
+    // VM boots in 4 stages over 4 seconds
+    setTimeout(() => {
+      setVmBootProgress(35);
+      setVmBootStage("2/4: Decompressing & Initializing Guest Kernel...");
+    }, 1000);
+
+    setTimeout(() => {
+      setVmBootProgress(68);
+      setVmBootStage("3/4: Launching systemd services & virtual disk mount...");
+    }, 2100);
+
+    setTimeout(() => {
+      setVmBootProgress(90);
+      setVmBootStage("4/4: Initializing virtual network drivers...");
+    }, 3100);
+
+    setTimeout(() => {
+      setVmBootProgress(100);
+      setVmBootStage("✅ Ready after 35,000ms (770x slower)");
+      setBootRaceRunning(false);
+      addCliLog(`💻 Boot Benchmark: ${instanceCount} Virtual Machines fully initialized after 35s.`);
+    }, 4000);
+  };
 
   const addCliLog = (msg: string) => {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false });
@@ -641,54 +682,272 @@ export default function ContainersPage() {
 
         {/* ══════════ SUBMODULE 5: Container vs VM Benchmark ══════════ */}
         {activeSubModule === "benchmark" && (
-          <div className="glass-panel rounded-2xl p-6 sm:p-8 border border-white/10 tech-border space-y-6 animate-fadeIn">
-            <div>
-              <h2 className="font-display text-xl font-bold text-white">Container vs Virtual Machine Benchmark</h2>
-              <p className="font-sans text-xs text-on-surface-variant mt-1">
-                See how density and startup speeds scale when multiplexing applications on the same physical host.
-              </p>
+          <div className="glass-panel rounded-2xl p-6 sm:p-8 border border-white/10 tech-border space-y-8 animate-fadeIn">
+            {/* Header & Description */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+              <div>
+                <div className="font-mono text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span>ARCHITECTURE &amp; DENSITY SIMULATION</span>
+                </div>
+                <h2 className="font-display text-xl font-bold text-white mt-1">
+                  Linux Containers vs Full Virtual Machines (16 GB Host)
+                </h2>
+                <p className="font-sans text-xs text-on-surface-variant mt-1">
+                  Adjust the instance count to watch how physical RAM saturation, kernel virtualization, and startup boot latency scale in real-time.
+                </p>
+              </div>
+
+              {/* Startup Race Button */}
+              <button
+                onClick={handleStartBootRace}
+                disabled={bootRaceRunning}
+                className={`px-5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 shrink-0 ${
+                  bootRaceRunning
+                    ? "bg-surface-container border border-white/10 text-on-surface-variant cursor-not-allowed"
+                    : "bg-primary text-black hover:bg-primary/80 shadow-[0_0_20px_rgba(0,210,255,0.4)]"
+                }`}
+              >
+                <span>{bootRaceRunning ? "⏳ Racing Boot Speeds..." : "▶ Run Boot Speed Race"}</span>
+              </button>
             </div>
 
-            <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-2">
-              <div className="flex justify-between font-mono text-xs">
-                <span>Simulated App Workload Instances:</span>
-                <span className="text-amber-400 font-bold">{instanceCount} Instances</span>
+            {/* Slider & Telemetry Controls */}
+            <div className="glass-panel p-5 rounded-xl border border-white/10 space-y-3">
+              <div className="flex justify-between items-center font-mono text-xs">
+                <span className="text-on-surface-variant flex items-center gap-2">
+                  <span>Simulated Concurrent App Workloads:</span>
+                  <span className="text-white font-bold text-sm bg-surface-container px-2.5 py-0.5 rounded border border-white/10">
+                    {instanceCount} Instances
+                  </span>
+                </span>
+                <span className="text-[11px] text-amber-400">
+                  {instanceCount > 13 ? "⚠️ High VM Saturation (>100% Host RAM)" : "Normal Load"}
+                </span>
               </div>
               <input
                 type="range"
                 min="1"
-                max="50"
+                max="32"
                 value={instanceCount}
                 onChange={(e) => setInstanceCount(Number(e.target.value))}
                 className="w-full"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-5 rounded-xl border border-emerald-500/40 bg-emerald-500/5 space-y-3 font-mono text-xs">
-                <div className="flex justify-between items-center text-emerald-400 font-bold border-b border-emerald-500/20 pb-2">
-                  <span>📦 Linux Containers (Docker)</span>
-                  <span>Lightweight</span>
+            {/* ══════════ HOST HARDWARE MEMORY SATURATION BARS ══════════ */}
+            <div className="glass-panel p-5 rounded-xl border border-white/10 space-y-4">
+              <div className="font-mono text-xs font-bold text-white uppercase tracking-wider flex justify-between items-center">
+                <span>Physical 16 GB Host Memory Allocation (16,384 MB Capacity)</span>
+                <span className="text-[10px] text-on-surface-variant font-normal">Physical Server Model: 8-Core / 16GB ECC RAM</span>
+              </div>
+
+              <div className="space-y-3 font-mono text-xs">
+                {/* Container Memory Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                      <span>📦 Container Pool:</span>
+                      <span className="text-white">{(instanceCount * 8).toFixed(0)} MB used</span>
+                    </span>
+                    <span className="text-emerald-400 font-bold">
+                      {((instanceCount * 8 / 16384) * 100).toFixed(1)}% Host RAM ({(16384 - instanceCount * 8).toLocaleString()} MB Free)
+                    </span>
+                  </div>
+                  <div className="h-3 w-full bg-surface-container-highest rounded-full overflow-hidden p-0.5 border border-emerald-500/30">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(0,255,194,0.5)]"
+                      style={{ width: `${Math.min(100, Math.max(1.5, (instanceCount * 8 / 16384) * 100))}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1.5 text-on-surface-variant text-[11px]">
-                  <div>Boot Time: <span className="text-white font-bold">~45 ms (Instant Process Fork)</span></div>
-                  <div>RAM Consumed: <span className="text-white font-bold">{(instanceCount * 8).toFixed(0)} MB</span> (Shared Kernel)</div>
-                  <div>Hypervisor Overhead: <span className="text-emerald-400 font-bold">0% (Native Syscalls)</span></div>
-                  <div>Max Density on 16GB Host: <span className="text-white font-bold">~1,800 containers</span></div>
+
+                {/* VM Memory Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-error-pulse font-bold flex items-center gap-1.5">
+                      <span>💻 Hypervisor VM Pool:</span>
+                      <span className="text-white">{(instanceCount * 1200).toLocaleString()} MB requested</span>
+                    </span>
+                    <span className={instanceCount * 1200 > 16384 ? "text-error-pulse font-bold animate-pulse" : "text-amber-400 font-bold"}>
+                      {((instanceCount * 1200 / 16384) * 100).toFixed(1)}% Host RAM {instanceCount * 1200 > 16384 ? "(OVERFLOW EXHAUSTED)" : ""}
+                    </span>
+                  </div>
+                  <div className="h-3 w-full bg-surface-container-highest rounded-full overflow-hidden p-0.5 border border-error-pulse/30">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        instanceCount * 1200 > 16384
+                          ? "bg-gradient-to-r from-amber-500 to-error-pulse shadow-[0_0_15px_rgba(255,0,92,0.7)] animate-pulse"
+                          : "bg-gradient-to-r from-amber-500 to-rose-500"
+                      }`}
+                      style={{ width: `${Math.min(100, (instanceCount * 1200 / 16384) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="p-5 rounded-xl border border-error-pulse/40 bg-error-pulse/5 space-y-3 font-mono text-xs">
-                <div className="flex justify-between items-center text-error-pulse font-bold border-b border-error-pulse/20 pb-2">
-                  <span>💻 Full Virtual Machines (KVM/ESXi)</span>
-                  <span>Heavy Footprint</span>
+              {instanceCount * 1200 > 16384 && (
+                <div className="p-3 rounded-lg bg-error-pulse/15 border border-error-pulse/40 text-error-pulse font-mono text-xs flex items-center gap-2.5 animate-fadeIn">
+                  <span className="text-base">⚠️</span>
+                  <div>
+                    <strong>HYPERVISOR THRASHING:</strong> Host physical RAM exhausted at {instanceCount} VMs. Kernel swap space is saturated, inducing 4,000ms disk latency &amp; crashing guest operating systems.
+                  </div>
                 </div>
-                <div className="space-y-1.5 text-on-surface-variant text-[11px]">
-                  <div>Boot Time: <span className="text-white font-bold">~35,000 ms (Full OS Initialization)</span></div>
-                  <div>RAM Consumed: <span className="text-white font-bold">{(instanceCount * 1200).toFixed(0)} MB</span> (Redundant Guest Kernels)</div>
-                  <div>Hypervisor Overhead: <span className="text-error-pulse font-bold">12–18% CPU penalty</span></div>
-                  <div>Max Density on 16GB Host: <span className="text-white font-bold">~12 VMs maximum</span></div>
+              )}
+            </div>
+
+            {/* ══════════ LIVE ARCHITECTURE & INSTANCE DENSITY CANVAS ══════════ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 font-mono text-xs">
+              {/* LEFT: Container Density Canvas */}
+              <div className="p-5 rounded-2xl border border-emerald-500/40 bg-emerald-500/5 space-y-4 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center border-b border-emerald-500/20 pb-3">
+                    <div>
+                      <div className="text-emerald-400 font-bold text-sm">📦 Linux Containers</div>
+                      <div className="text-[10px] text-on-surface-variant">Shared Host Kernel Architecture</div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold">
+                      {instanceCount} Isolated Processes
+                    </span>
+                  </div>
+
+                  {/* Boot Race Telemetry */}
+                  <div className="p-3 rounded-xl bg-black/40 border border-emerald-500/20 text-[11px] flex items-center justify-between">
+                    <span className="text-on-surface-variant">Cold Startup Speed:</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                      {containerBootDone ? (
+                        <span className="text-success-glow font-bold animate-bounce">⚡ 42 ms (Process Forked!)</span>
+                      ) : bootRaceRunning ? (
+                        <span className="text-cyan animate-pulse">⏳ Forking...</span>
+                      ) : (
+                        <span>~45 ms (Native fork)</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Visual Process Density Grid */}
+                  <div className="space-y-1.5 pt-2">
+                    <div className="text-[10px] text-on-surface-variant uppercase">Active Process Instances ({instanceCount} running):</div>
+                    <div className="min-h-[140px] max-h-[180px] overflow-y-auto p-2.5 rounded-xl bg-black/50 border border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-2 content-start">
+                      {Array.from({ length: instanceCount }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] flex flex-col items-center justify-center transition-all ${
+                            containerBootDone ? "scale-105 shadow-[0_0_10px_rgba(0,255,194,0.3)]" : ""
+                          }`}
+                        >
+                          <span className="font-bold">c-{idx + 1 < 10 ? `0${idx + 1}` : idx + 1}</span>
+                          <span className="text-[9px] text-on-surface-variant font-mono">PID {1420 + idx}</span>
+                          <span className="text-[9px] text-emerald-400 font-bold">8 MB</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Shared Kernel Foundation Layer */}
+                <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-center text-[10px] text-emerald-300">
+                  <div className="font-bold">🖥️ Single Shared Host Linux Kernel (v6.1.0)</div>
+                  <div className="text-on-surface-variant text-[9px] mt-0.5">
+                    Isolated via cgroups v2 limits &amp; PID/NET/MNT namespaces • 0 MB duplicate OS payload
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: VM Heavy Architecture Canvas */}
+              <div className="p-5 rounded-2xl border border-error-pulse/40 bg-error-pulse/5 space-y-4 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center border-b border-error-pulse/20 pb-3">
+                    <div>
+                      <div className="text-error-pulse font-bold text-sm">💻 Full Virtual Machines</div>
+                      <div className="text-[10px] text-on-surface-variant">Type-2 / Type-1 Hypervisor Architecture</div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-error-pulse/20 border border-error-pulse/40 text-error-pulse text-[10px] font-bold">
+                      {instanceCount} Redundant Guest OSes
+                    </span>
+                  </div>
+
+                  {/* Boot Race Telemetry */}
+                  <div className="p-3 rounded-xl bg-black/40 border border-error-pulse/20 text-[11px] space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-on-surface-variant">Cold Startup Stage:</span>
+                      <span className="text-amber-400 font-bold">{vmBootStage}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 transition-all duration-300 rounded-full"
+                        style={{ width: `${bootRaceRunning ? vmBootProgress : 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Visual VM Grid */}
+                  <div className="space-y-1.5 pt-2">
+                    <div className="text-[10px] text-on-surface-variant uppercase">Simulated Virtual Machines ({instanceCount} instances):</div>
+                    <div className="min-h-[140px] max-h-[180px] overflow-y-auto p-2.5 rounded-xl bg-black/50 border border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-2 content-start">
+                      {Array.from({ length: instanceCount }).map((_, idx) => {
+                        const isOom = idx >= 13;
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-lg border text-[10px] space-y-1 transition-all ${
+                              isOom
+                                ? "border-error-pulse/60 bg-error-pulse/20 text-error-pulse animate-pulse"
+                                : "border-white/10 bg-surface-container text-white"
+                            }`}
+                          >
+                            <div className="flex justify-between font-bold">
+                              <span>VM-{idx + 1 < 10 ? `0${idx + 1}` : idx + 1}</span>
+                              <span className={isOom ? "text-error-pulse" : "text-amber-400"}>
+                                {isOom ? "💥 OOM Crash" : "1,200 MB"}
+                              </span>
+                            </div>
+                            <div className="text-[9px] text-on-surface-variant space-y-0.5">
+                              <div>• Guest Kernel: ~850 MB</div>
+                              <div>• Virtual BIOS + vNIC: ~342 MB</div>
+                              <div>• User App: 8 MB</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hypervisor Emulation Layer */}
+                <div className="p-3 rounded-xl bg-rose-950/40 border border-error-pulse/30 text-center text-[10px] text-rose-300">
+                  <div className="font-bold">🧱 Virtual Machine Hypervisor Layer (KVM / QEMU)</div>
+                  <div className="text-on-surface-variant text-[9px] mt-0.5">
+                    Emulates CPU instructions &amp; virtual hardware • 12–18% CPU tax • {(instanceCount * 1.2).toFixed(1)} GB redundant memory
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Benchmark Metrics Comparison Table */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 font-mono text-xs">
+              <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-1">
+                <span className="text-[10px] text-on-surface-variant uppercase">Cold Boot Latency</span>
+                <div className="text-emerald-400 font-bold text-base">45 ms</div>
+                <div className="text-error-pulse text-[10px]">vs 35,000 ms (VMs)</div>
+              </div>
+
+              <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-1">
+                <span className="text-[10px] text-on-surface-variant uppercase">RAM per 10 Instances</span>
+                <div className="text-emerald-400 font-bold text-base">80 MB</div>
+                <div className="text-error-pulse text-[10px]">vs 12,000 MB (VMs)</div>
+              </div>
+
+              <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-1">
+                <span className="text-[10px] text-on-surface-variant uppercase">Physical Host Max Density</span>
+                <div className="text-emerald-400 font-bold text-base">~1,800 Units</div>
+                <div className="text-error-pulse text-[10px]">vs ~12 Units (VMs)</div>
+              </div>
+
+              <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-1">
+                <span className="text-[10px] text-on-surface-variant uppercase">Syscall Overhead</span>
+                <div className="text-emerald-400 font-bold text-base">0.0% (Native)</div>
+                <div className="text-error-pulse text-[10px]">vs 14% Hypervisor Tax</div>
               </div>
             </div>
           </div>
