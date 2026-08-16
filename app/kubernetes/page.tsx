@@ -161,6 +161,7 @@ export default function KubernetesPage() {
     if (calculatedReplicas !== pods.length && !isReconciling && !isRollingOut) {
       handleReconcile(calculatedReplicas);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpaTraffic, hpaTargetCpu]);
 
   return (

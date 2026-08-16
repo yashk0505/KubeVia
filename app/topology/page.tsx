@@ -128,7 +128,7 @@ export default function TopologyPage() {
       window.removeEventListener("resize", updateLines);
       clearTimeout(timeout);
     };
-  }, [nodes.length]);
+  }, [nodes]);
 
   // Kubelet Heartbeat simulation — pulse lines and add logs
   useEffect(() => {

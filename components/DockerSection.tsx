@@ -33,7 +33,7 @@ export default function DockerSection() {
           <span className="font-medium text-ink">The limit:</span> if that
           one machine goes down, nothing restarts the container or moves it
           elsewhere. Production needs something watching over many
-          containers, on many machines — that's Kubernetes.
+          containers, on many machines — that&apos;s Kubernetes.
         </div>
       </div>
     </section>

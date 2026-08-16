@@ -41,6 +41,7 @@ export default function ProcessDiagram({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, duration / cycle.length);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, cycle.length]);
 
   const first = positions[0];

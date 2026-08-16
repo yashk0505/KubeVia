@@ -12,7 +12,7 @@ export default function ContainerSection() {
         </div>
 
         <h2 className="text-balance mt-5 max-w-[520px] text-[32px] font-light leading-[1.25] tracking-tight">
-          "It works on my machine."
+          &ldquo;It works on my machine.&rdquo;
         </h2>
 
         <p className="mt-5 max-w-[460px] text-base text-dim">
