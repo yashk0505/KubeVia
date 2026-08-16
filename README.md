@@ -153,4 +153,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 **Yash**  
 - GitHub: [@yashk0505](https://github.com/yashk0505)
-- Repository: [https://github.com/yashk0505/kubeverse](https://github.com/yashk0505/kubeverse)
+- Repository: [https://github.com/yashk0505/KubeVerse.git](https://github.com/yashk0505/KubeVerse.git)
