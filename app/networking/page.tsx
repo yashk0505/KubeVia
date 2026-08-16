@@ -33,6 +33,43 @@ export default function NetworkingPage() {
   const [allowDbAccess, setAllowDbAccess] = useState(false);
   const [policyTestStatus, setPolicyTestStatus] = useState<"idle" | "allowed" | "blocked">("idle");
 
+  // VXLAN Overlay Simulation State
+  const [vxlanStep, setVxlanStep] = useState<"idle" | "veth" | "cni0" | "encap" | "wire" | "decap" | "pod2">("idle");
+  const [vxlanLogs, setVxlanLogs] = useState<string[]>([
+    "VXLAN Tunnel Engine Ready. Click 'Transmit Cross-Node Packet' to initiate encapsulation.",
+  ]);
+
+  const startVxlanSimulation = () => {
+    if (vxlanStep !== "idle" && vxlanStep !== "pod2") return;
+    setVxlanStep("veth");
+    setVxlanLogs(["[0.0ms] Pod-1 (10.244.1.5) kernel sends IP packet to default gateway via veth pair."]);
+
+    setTimeout(() => {
+      setVxlanStep("cni0");
+      setVxlanLogs((p) => ["[0.3ms] cni0 Linux bridge intercepts packet. Determines destination 10.244.2.8 is off-node.", ...p]);
+
+      setTimeout(() => {
+        setVxlanStep("encap");
+        setVxlanLogs((p) => ["[0.7ms] CNI VXLAN Device (flannel.1 / cilium_vxlan): Prepends VNI=1 + Outer UDP Header (Src: 192.168.1.10, Dst: 192.168.1.20:8472).", ...p]);
+
+        setTimeout(() => {
+          setVxlanStep("wire");
+          setVxlanLogs((p) => ["[1.4ms] Physical Underlay Switch routes UDP/8472 packet across data center network fabric.", ...p]);
+
+          setTimeout(() => {
+            setVxlanStep("decap");
+            setVxlanLogs((p) => ["[2.0ms] Node-B (192.168.1.20) Kernel decapsulates outer VXLAN frame. Inner packet exposed.", ...p]);
+
+            setTimeout(() => {
+              setVxlanStep("pod2");
+              setVxlanLogs((p) => ["[2.4ms] ✅ Packet delivered directly to Pod-2 eth0 namespace with original IP intact (10.244.2.8)!", ...p]);
+            }, 700);
+          }, 700);
+        }, 700);
+      }, 700);
+    }, 700);
+  };
+
   const startPacketJourney = () => {
     if (packetStep !== "idle" && packetStep !== "response") return;
 
@@ -246,40 +283,157 @@ export default function NetworkingPage() {
 
         {/* ══════════ SUBMODULE 2: Pod-to-Pod Overlay (CNI) ══════════ */}
         {activeSubModule === "overlay" && (
-          <div className="glass-panel rounded-2xl p-6 sm:p-8 border border-white/10 tech-border space-y-6 animate-fadeIn">
-            <div>
-              <h2 className="font-display text-xl font-bold text-white">CNI Overlay Networking (Pod-to-Pod)</h2>
-              <p className="font-sans text-xs text-on-surface-variant mt-1">
-                Every pod in a Kubernetes cluster gets its own unique IP. Pods on different nodes communicate directly without NAT using CNI plugins (Calico, Cilium, Flannel).
-              </p>
+          <div className="glass-panel rounded-2xl p-6 sm:p-8 border border-white/10 tech-border space-y-8 animate-fadeIn">
+            {/* Header & Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+              <div>
+                <div className="font-mono text-xs font-bold text-cyan uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                  <span>CROSS-NODE PACKET ENCAPSULATION SIMULATOR</span>
+                </div>
+                <h2 className="font-display text-xl font-bold text-white mt-1">
+                  CNI Overlay Networking &amp; VXLAN Tunneling
+                </h2>
+                <p className="font-sans text-xs text-on-surface-variant mt-1">
+                  Every pod gets its own unique routable IP. Watch how the CNI plugin encapsulates cross-node packets inside UDP port 8472 frames without physical router reconfiguration.
+                </p>
+              </div>
+
+              <button
+                onClick={startVxlanSimulation}
+                disabled={vxlanStep !== "idle" && vxlanStep !== "pod2"}
+                className={`px-5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 shrink-0 ${
+                  vxlanStep !== "idle" && vxlanStep !== "pod2"
+                    ? "bg-surface-container border border-white/10 text-on-surface-variant cursor-not-allowed"
+                    : "bg-cyan text-black hover:bg-cyan/80 shadow-[0_0_20px_rgba(0,210,255,0.4)]"
+                }`}
+              >
+                <span>{vxlanStep !== "idle" && vxlanStep !== "pod2" ? "⏳ Routing Packet..." : "▶ Transmit Cross-Node Packet"}</span>
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              <div className="p-5 rounded-xl bg-surface-container border border-primary/40 space-y-3 font-mono text-xs">
-                <div className="text-primary font-bold border-b border-primary/20 pb-2">
-                  Node-A (Host IP: 192.168.1.10)
+            {/* Visual Step Pipeline */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 font-mono text-xs">
+              {[
+                { key: "veth", label: "1. Pod-1 veth", node: "Node-A", desc: "10.244.1.5 egress" },
+                { key: "cni0", label: "2. cni0 Bridge", node: "Node-A", desc: "Layer 2 Switching" },
+                { key: "encap", label: "3. VXLAN Encap", node: "flannel.1", desc: "Wrap UDP:8472" },
+                { key: "wire", label: "4. Underlay Wire", node: "DC Switch", desc: "192.168.1.x wire" },
+                { key: "decap", label: "5. VXLAN Decap", node: "Node-B", desc: "Unwrap Outer IP" },
+                { key: "pod2", label: "6. Pod-2 eth0", node: "Node-B", desc: "10.244.2.8 delivery" },
+              ].map((step) => {
+                const isCurrent = vxlanStep === step.key;
+                const stepOrder = ["veth", "cni0", "encap", "wire", "decap", "pod2"];
+                const isPassed = vxlanStep !== "idle" && stepOrder.indexOf(vxlanStep) > stepOrder.indexOf(step.key as any);
+
+                return (
+                  <div
+                    key={step.key}
+                    className={`p-3 rounded-xl border text-center transition-all relative ${
+                      isCurrent
+                        ? "bg-cyan/20 border-cyan text-cyan font-bold shadow-[0_0_20px_rgba(0,210,255,0.4)] scale-105"
+                        : isPassed
+                        ? "bg-surface-container border-cyan/30 text-white"
+                        : "bg-surface-container/40 border-white/5 text-on-surface-variant opacity-60"
+                    }`}
+                  >
+                    <div className="font-bold text-[11px]">{step.label}</div>
+                    <div className="text-[9px] text-on-surface-variant mt-0.5">{step.node}</div>
+                    <div className="text-[8px] text-cyan/80 mt-1">{step.desc}</div>
+                    {isCurrent && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-cyan text-black font-bold text-[8px] animate-bounce">
+                        PACKET HERE
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Dynamic Packet Header Inspection Matrix */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* NODE-A RACK */}
+              <div className={`p-5 rounded-2xl border transition-all space-y-3 font-mono text-xs ${
+                vxlanStep === "veth" || vxlanStep === "cni0" || vxlanStep === "encap"
+                  ? "border-cyan bg-cyan/10 shadow-[0_0_25px_rgba(0,210,255,0.2)]"
+                  : "border-white/10 bg-surface-container"
+              }`}>
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <span className="font-bold text-white">🖥️ Node-A (Host IP: 192.168.1.10)</span>
+                  <span className="text-cyan text-[10px]">SRC HOST</span>
                 </div>
-                <div className="p-3 rounded bg-black/50 border border-white/10 space-y-1">
-                  <div className="text-white font-bold">Pod-1 (IP: 10.244.1.5)</div>
-                  <div className="text-on-surface-variant text-[10px]">Sends packet: `SRC 10.244.1.5 ➔ DST 10.244.2.8`</div>
+
+                <div className="p-3 rounded-xl bg-black/50 border border-white/10 space-y-1.5">
+                  <div className="text-emerald-400 font-bold flex items-center justify-between">
+                    <span>📦 Pod-1 (10.244.1.5)</span>
+                    <span className="text-[9px] text-on-surface-variant">veth0 ➔ cni0</span>
+                  </div>
+                  <div className="text-[10px] text-on-surface-variant">
+                    Initial IP Header: <code>SRC: 10.244.1.5 ➔ DST: 10.244.2.8</code>
+                  </div>
                 </div>
-                <div className="text-[10px] text-cyan">
-                  Encapsulation: VXLAN Tunnel Device (flannel.1 / cilium_vxlan) wraps packet in UDP port 8472.
-                </div>
+
+                {vxlanStep === "encap" || vxlanStep === "wire" ? (
+                  <div className="p-3 rounded-xl bg-cyan/15 border border-cyan/40 text-[10px] space-y-1 animate-fadeIn">
+                    <div className="text-cyan font-bold uppercase">🔒 Outer VXLAN Frame Prepended:</div>
+                    <div className="text-white">• Outer Src: 192.168.1.10 (Node-A physical IP)</div>
+                    <div className="text-white">• Outer Dst: 192.168.1.20:8472 (Node-B physical IP)</div>
+                    <div className="text-cyan">• VXLAN VNI: 1 (Virtual Network Identifier)</div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-black/30 border border-dashed border-white/10 text-[10px] text-on-surface-variant text-center">
+                    VXLAN Tunnel device flannel.1 idle
+                  </div>
+                )}
               </div>
 
-              <div className="p-5 rounded-xl bg-surface-container border border-secondary/40 space-y-3 font-mono text-xs">
-                <div className="text-secondary font-bold border-b border-secondary/20 pb-2">
-                  Node-B (Host IP: 192.168.1.20)
+              {/* NODE-B RACK */}
+              <div className={`p-5 rounded-2xl border transition-all space-y-3 font-mono text-xs ${
+                vxlanStep === "decap" || vxlanStep === "pod2"
+                  ? "border-success-glow bg-success-glow/10 shadow-[0_0_25px_rgba(0,255,194,0.2)]"
+                  : "border-white/10 bg-surface-container"
+              }`}>
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <span className="font-bold text-white">🖥️ Node-B (Host IP: 192.168.1.20)</span>
+                  <span className="text-success-glow text-[10px]">DST HOST</span>
                 </div>
-                <div className="p-3 rounded bg-black/50 border border-white/10 space-y-1">
-                  <div className="text-white font-bold">Pod-2 (IP: 10.244.2.8)</div>
-                  <div className="text-on-surface-variant text-[10px]">Receives unwrapped packet on virtual eth0 interface</div>
+
+                <div className="p-3 rounded-xl bg-black/50 border border-white/10 space-y-1.5">
+                  <div className="text-success-glow font-bold flex items-center justify-between">
+                    <span>📦 Pod-2 (10.244.2.8)</span>
+                    <span className="text-[9px] text-on-surface-variant">cni0 ➔ veth0</span>
+                  </div>
+                  <div className="text-[10px] text-on-surface-variant">
+                    Target Pod Namespace listening on port :80
+                  </div>
                 </div>
-                <div className="text-[10px] text-success-glow">
-                  Decapsulation: VXLAN stripped by kernel, delivered cleanly to Pod-2 namespace.
-                </div>
+
+                {vxlanStep === "decap" || vxlanStep === "pod2" ? (
+                  <div className="p-3 rounded-xl bg-success-glow/15 border border-success-glow/40 text-[10px] space-y-1 animate-fadeIn">
+                    <div className="text-success-glow font-bold uppercase">🔓 Outer VXLAN Frame Stripped:</div>
+                    <div className="text-white">• UDP 8472 wrapper removed by kernel socket</div>
+                    <div className="text-white">• Inner packet untouched: 10.244.1.5 ➔ 10.244.2.8</div>
+                    <div className="text-success-glow">• Packet forwarded into Pod-2 namespace</div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-black/30 border border-dashed border-white/10 text-[10px] text-on-surface-variant text-center">
+                    Awaiting incoming UDP packet on port 8472
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* VXLAN Event Telemetry Log */}
+            <div className="rounded-xl bg-black/60 border border-white/10 p-4 font-mono text-xs space-y-1 max-h-36 overflow-y-auto">
+              <div className="text-[10px] text-on-surface-variant border-b border-white/10 pb-1 uppercase font-bold flex justify-between">
+                <span>CNI Data Plane Event Log</span>
+                <span className="text-cyan">VXLAN / UDP:8472</span>
+              </div>
+              {vxlanLogs.map((log, i) => (
+                <div key={i} className="text-cyan text-[11px] leading-relaxed">
+                  {log}
+                </div>
+              ))}
             </div>
           </div>
         )}

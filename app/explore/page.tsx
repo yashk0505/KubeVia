@@ -40,8 +40,22 @@ export default function ExplorePage() {
   // Scene 5 state: Pod sidecar toggle
   const [hasSidecar, setHasSidecar] = useState(false);
 
+  // Scene 6 state: Worker nodes fleet
+  const [workerPods, setWorkerPods] = useState<{ alpha: number; beta: number; gamma: number }>({
+    alpha: 2,
+    beta: 3,
+    gamma: 4,
+  });
+
+  // Scene 7 state: Control plane component inspector
+  const [selectedCpComp, setSelectedCpComp] = useState<"api" | "etcd" | "sched" | "ctrl">("api");
+
   // Scene 8 state: Scheduler simulation
   const [scheduledNode, setScheduledNode] = useState<string | null>("node-1");
+
+  // Scene 9 state: Interactive packet routing
+  const [scene9Routing, setScene9Routing] = useState(false);
+  const [scene9ActivePod, setScene9ActivePod] = useState<number>(1);
 
   // Scene 10 state: Self-healing pod simulation
   const [podStatus, setPodStatus] = useState<"healthy" | "crashed" | "healing">("healthy");
@@ -426,24 +440,69 @@ export default function ExplorePage() {
                 </p>
               </div>
 
+              {/* Interactive Fleet Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-mono text-xs text-on-surface-variant">Interact:</span>
+                <button
+                  onClick={() => setWorkerPods((p) => ({ ...p, alpha: Math.min(6, p.alpha + 1) }))}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container border border-white/10 hover:border-primary text-primary font-mono text-xs"
+                >
+                  + Pod to Alpha
+                </button>
+                <button
+                  onClick={() => setWorkerPods((p) => ({ ...p, beta: Math.min(6, p.beta + 1) }))}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container border border-white/10 hover:border-secondary text-secondary font-mono text-xs"
+                >
+                  + Pod to Beta
+                </button>
+                <button
+                  onClick={() => setWorkerPods((p) => ({ ...p, gamma: Math.min(6, p.gamma + 1) }))}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container border border-white/10 hover:border-success-glow text-success-glow font-mono text-xs"
+                >
+                  + Pod to Gamma
+                </button>
+                <button
+                  onClick={() => setWorkerPods({ alpha: 2, beta: 3, gamma: 4 })}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container border border-white/10 text-on-surface-variant hover:text-white font-mono text-xs"
+                >
+                  Reset Fleet ↺
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2">
-                {["node-worker-alpha", "node-worker-beta", "node-worker-gamma"].map((name, i) => (
-                  <div key={name} className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3">
+                {[
+                  { key: "alpha", name: "node-worker-alpha", pods: workerPods.alpha, color: "border-primary/40 text-primary" },
+                  { key: "beta", name: "node-worker-beta", pods: workerPods.beta, color: "border-secondary/40 text-secondary" },
+                  { key: "gamma", name: "node-worker-gamma", pods: workerPods.gamma, color: "border-success-glow/40 text-success-glow" },
+                ].map((node) => (
+                  <div key={node.key} className={`glass-panel p-5 rounded-2xl border ${node.color} space-y-3 transition-all`}>
                     <div className="flex justify-between items-center font-mono text-xs">
-                      <span className="font-bold text-white">{name}</span>
+                      <span className="font-bold text-white">{node.name}</span>
                       <span className="text-[10px] text-success-glow">● Ready</span>
                     </div>
-                    <div className="rounded bg-black/40 p-2 font-mono text-[10px] text-on-surface-variant space-y-0.5 border border-white/5">
-                      <div>kubelet: active</div>
-                      <div>containerd: active</div>
-                      <div>kube-proxy: active</div>
+                    <div className="rounded bg-black/40 p-2.5 font-mono text-[10px] text-on-surface-variant space-y-0.5 border border-white/5">
+                      <div className="flex justify-between">
+                        <span>kubelet:</span> <span className="text-success-glow">active (Heartbeat OK)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>containerd:</span> <span className="text-white">v1.7.12</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>kube-proxy:</span> <span className="text-cyan">IPVS mode</span>
+                      </div>
                     </div>
-                    <div className="pt-2 flex flex-wrap gap-1.5">
-                      {Array.from({ length: 2 + i }).map((_, podIdx) => (
-                        <span key={podIdx} className="font-mono text-[9px] px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-                          pod-{podIdx + 1}
-                        </span>
-                      ))}
+                    <div className="pt-2">
+                      <div className="text-[10px] font-mono text-on-surface-variant mb-1.5 flex justify-between">
+                        <span>Hosted Pods:</span>
+                        <span className="text-white font-bold">{node.pods} pods</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 min-h-[30px]">
+                        {Array.from({ length: node.pods }).map((_, podIdx) => (
+                          <span key={podIdx} className="font-mono text-[9px] px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 animate-scaleIn">
+                            pod-{podIdx + 1}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -458,30 +517,78 @@ export default function ExplorePage() {
                 <span className="font-mono text-xs text-desired-state font-bold uppercase">The Grand Architecture</span>
                 <h2 className="font-display text-3xl font-bold text-white">The Kubernetes Cluster</h2>
                 <p className="font-sans text-sm text-on-surface-variant leading-relaxed">
-                  A Cluster unites the <strong>Control Plane</strong> (the brain) and the <strong>Worker Fleet</strong> (the muscle). Together, they operate as a single unified supercomputer.
+                  A Cluster unites the <strong>Control Plane</strong> (the brain) and the <strong>Worker Fleet</strong> (the muscle). Click any control plane component to inspect its exact responsibilities.
                 </p>
               </div>
 
               <div className="flex flex-col items-center gap-6 pt-2">
                 {/* Control Plane Box */}
-                <div className="w-full max-w-2xl rounded-2xl glass-panel border border-desired-state/50 p-5 text-center shadow-[0_0_30px_rgba(189,0,255,0.15)]">
-                  <div className="font-mono text-xs text-desired-state font-bold uppercase mb-2">Control Plane (Brain)</div>
-                  <div className="grid grid-cols-4 gap-2 font-mono text-xs">
-                    <div className="rounded bg-black/50 p-2 border border-white/10 text-primary">API Server</div>
-                    <div className="rounded bg-black/50 p-2 border border-white/10 text-desired-state">etcd Store</div>
-                    <div className="rounded bg-black/50 p-2 border border-white/10 text-secondary">Scheduler</div>
-                    <div className="rounded bg-black/50 p-2 border border-white/10 text-tertiary">Controller</div>
+                <div className="w-full max-w-3xl rounded-2xl glass-panel border border-desired-state/50 p-6 shadow-[0_0_30px_rgba(189,0,255,0.15)] space-y-4">
+                  <div className="flex justify-between items-center border-b border-desired-state/20 pb-3">
+                    <div className="font-mono text-xs text-desired-state font-bold uppercase">
+                      Control Plane (Master Node Hub)
+                    </div>
+                    <span className="text-[10px] font-mono text-on-surface-variant">Click component to inspect</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+                    {[
+                      { id: "api", name: "kube-apiserver", role: "REST Gateway & Auth", color: "text-primary border-primary/40 bg-primary/10" },
+                      { id: "etcd", name: "etcd Database", role: "Raft State Store", color: "text-desired-state border-desired-state/40 bg-desired-state/10" },
+                      { id: "sched", name: "kube-scheduler", role: "Pod Placement", color: "text-secondary border-secondary/40 bg-secondary/10" },
+                      { id: "ctrl", name: "kube-controller", role: "Reconciliation Loops", color: "text-tertiary border-tertiary/40 bg-tertiary/10" },
+                    ].map((comp) => {
+                      const isSelected = selectedCpComp === comp.id;
+                      return (
+                        <button
+                          key={comp.id}
+                          onClick={() => setSelectedCpComp(comp.id as any)}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? `${comp.color} shadow-[0_0_15px_rgba(0,210,255,0.3)] font-bold scale-102`
+                              : "bg-surface-container border-white/5 text-on-surface-variant hover:text-white"
+                          }`}
+                        >
+                          <div className="font-bold text-[11px] text-white">{comp.name}</div>
+                          <div className="text-[9px] mt-0.5 text-on-surface-variant">{comp.role}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Component Inspector Detail */}
+                  <div className="p-3.5 rounded-xl bg-black/50 border border-white/10 font-mono text-xs text-on-surface-variant">
+                    {selectedCpComp === "api" && (
+                      <div>
+                        <strong className="text-primary">kube-apiserver:</strong> The central nervous system of Kubernetes. Every <code>kubectl</code> command, controller loop, and worker node talks exclusively to the API Server. Authenticates requests, applies admission webhooks, and writes state to etcd.
+                      </div>
+                    )}
+                    {selectedCpComp === "etcd" && (
+                      <div>
+                        <strong className="text-desired-state">etcd:</strong> Consistent and highly-available key-value store using the Raft consensus algorithm. Holds the entire declarative state of the cluster (deployments, pods, secrets, ingress routes).
+                      </div>
+                    )}
+                    {selectedCpComp === "sched" && (
+                      <div>
+                        <strong className="text-secondary">kube-scheduler:</strong> Continuously monitors newly created Pods with no assigned node. Filters nodes by memory/CPU and scores them based on topology spread, affinity, and taints.
+                      </div>
+                    )}
+                    {selectedCpComp === "ctrl" && (
+                      <div>
+                        <strong className="text-tertiary">kube-controller-manager:</strong> Runs core daemon loops (NodeController, DeploymentController, EndpointSliceController, JobController). Continuously shifts actual state toward desired state.
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="h-6 w-0.5 bg-gradient-to-b from-desired-state to-primary" />
 
                 {/* Worker Fleet Row */}
-                <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
-                  {["Worker 01", "Worker 02", "Worker 03"].map((w) => (
+                <div className="grid grid-cols-3 gap-4 w-full max-w-3xl">
+                  {["Worker Alpha (10.0.0.11)", "Worker Beta (10.0.0.12)", "Worker Gamma (10.0.0.13)"].map((w, i) => (
                     <div key={w} className="glass-panel p-3 rounded-xl border border-primary/30 text-center font-mono text-xs">
-                      <div className="font-bold text-white">{w}</div>
-                      <div className="text-[10px] text-success-glow mt-1">● 3 Pods Running</div>
+                      <div className="font-bold text-white text-[11px]">{w}</div>
+                      <div className="text-[10px] text-success-glow mt-1">● Kubelet Syncing</div>
                     </div>
                   ))}
                 </div>
@@ -555,25 +662,63 @@ export default function ExplorePage() {
               </div>
 
               <div className="flex flex-col items-center gap-6 pt-2">
-                <div className="px-6 py-3 rounded-full bg-data-flow/20 border border-data-flow text-data-flow font-mono text-xs font-bold shadow-[0_0_20px_rgba(0,210,255,0.3)]">
-                  🌐 User Ingress: https://api.mycompany.com
+                {/* Trigger Button */}
+                <button
+                  onClick={() => {
+                    if (scene9Routing) return;
+                    setScene9Routing(true);
+                    const target = Math.floor(Math.random() * 3) + 1;
+                    setScene9ActivePod(target);
+                    setTimeout(() => {
+                      setScene9Routing(false);
+                    }, 1400);
+                  }}
+                  disabled={scene9Routing}
+                  className="px-6 py-2.5 rounded-xl bg-success-glow/20 border border-success-glow/50 text-success-glow font-mono text-xs font-bold uppercase hover:bg-success-glow/30 transition-all shadow-[0_0_20px_rgba(0,255,194,0.3)] disabled:opacity-50"
+                >
+                  {scene9Routing ? "⏳ Dispatching HTTP Request..." : "▶ Send User HTTP Request"}
+                </button>
+
+                <div className={`px-6 py-3 rounded-full border font-mono text-xs font-bold transition-all ${
+                  scene9Routing
+                    ? "bg-data-flow/30 border-data-flow text-white shadow-[0_0_20px_rgba(0,210,255,0.4)] scale-105"
+                    : "bg-data-flow/20 border-data-flow text-data-flow"
+                }`}>
+                  🌐 User Ingress: https://api.mycompany.com/checkout
                 </div>
 
-                <div className="h-6 w-0.5 bg-data-flow animate-pulse" />
+                <div className={`h-6 w-0.5 transition-all ${scene9Routing ? "bg-success-glow scale-y-125" : "bg-data-flow animate-pulse"}`} />
 
                 <div className="px-8 py-4 rounded-xl glass-panel border border-success-glow/50 text-center font-mono text-xs shadow-[0_0_25px_rgba(0,255,194,0.2)]">
                   <div className="text-success-glow font-bold">K8s Service (ClusterIP: 10.96.0.1)</div>
                   <div className="text-[10px] text-on-surface-variant mt-0.5">Round-Robin EndpointSlice Selector</div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 w-full max-w-xl">
-                  {["Pod-1 (10.244.1.5)", "Pod-2 (10.244.2.8)", "Pod-3 (10.244.3.11)"].map((p, i) => (
-                    <div key={i} className="glass-panel p-3 rounded-xl border border-primary/40 text-center font-mono text-xs">
-                      <div className="text-lg mb-1">📦</div>
-                      <div className="text-[10px] text-white font-bold">{p}</div>
-                      <div className="text-[9px] text-success-glow mt-0.5">Receiving 33% traffic</div>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-xl">
+                  {[
+                    { id: 1, name: "Pod-1", ip: "10.244.1.5" },
+                    { id: 2, name: "Pod-2", ip: "10.244.2.8" },
+                    { id: 3, name: "Pod-3", ip: "10.244.3.11" },
+                  ].map((p) => {
+                    const isReceiving = scene9Routing && scene9ActivePod === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`glass-panel p-4 rounded-xl border text-center font-mono text-xs transition-all duration-300 ${
+                          isReceiving
+                            ? "border-success-glow bg-success-glow/20 text-success-glow shadow-[0_0_25px_rgba(0,255,194,0.4)] scale-105"
+                            : "border-primary/40 text-white"
+                        }`}
+                      >
+                        <div className="text-lg mb-1">{isReceiving ? "⚡" : "📦"}</div>
+                        <div className="text-[11px] font-bold">{p.name}</div>
+                        <div className="text-[9px] text-on-surface-variant">{p.ip}</div>
+                        <div className={`text-[9px] mt-1 font-bold ${isReceiving ? "text-success-glow animate-pulse" : "text-on-surface-variant"}`}>
+                          {isReceiving ? "Handling Request (200 OK) ✓" : "33% Traffic Share"}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

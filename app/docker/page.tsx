@@ -26,7 +26,7 @@ export default function DockerPage() {
   const [activeLayers, setActiveLayers] = useState<number[]>([1, 2, 3, 4]);
   const [isBuilding, setIsBuilding] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    "Ready to build image 'kubeverse-app:latest'...",
+    "Ready to build image 'kubevia-app:latest'...",
     "Click 'Execute Build' to watch layer compilation.",
   ]);
 
@@ -34,7 +34,7 @@ export default function DockerPage() {
     if (isBuilding) return;
     setIsBuilding(true);
     setActiveLayers([]);
-    setTerminalLogs(["> Initiating docker build -t kubeverse-app:latest ."]);
+    setTerminalLogs(["> Initiating docker build -t kubevia-app:latest ."]);
 
     buildSteps.forEach((step, idx) => {
       setTimeout(() => {
@@ -51,7 +51,7 @@ export default function DockerPage() {
             setTerminalLogs((prev) => [
               ...prev,
               "Successfully built 96f01fc33346",
-              "Successfully tagged kubeverse-app:latest",
+              "Successfully tagged kubevia-app:latest",
               "> Container instance ready for runtime.",
             ]);
             setIsBuilding(false);
