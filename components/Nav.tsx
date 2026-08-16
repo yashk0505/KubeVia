@@ -84,7 +84,7 @@ export default function Nav() {
         {/* Action Controls: Launch Sandbox Button & GitHub */}
         <div className="flex items-center gap-3">
           <a
-            href="https://github.com/yashk0505/KubeVerse.git"
+            href="https://github.com/yashk0505/KubeVia.git"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-surface-container px-3 py-2 font-mono text-xs text-on-surface-variant hover:text-white hover:border-primary/40 transition-all duration-200"

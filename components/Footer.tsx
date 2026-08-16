@@ -21,7 +21,7 @@ export default function Footer() {
             Modules
           </Link>
           <a
-            href="https://github.com/yashk0505/KubeVerse.git"
+            href="https://github.com/yashk0505/KubeVia.git"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-white transition-colors flex items-center gap-1.5"

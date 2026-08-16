@@ -86,10 +86,10 @@ KUBEVIA
 
 ```bash
 # Clone the repository
-git clone https://github.com/yashk0505/KubeVerse.git
+git clone https://github.com/yashk0505/KubeVia.git
 
 # Enter project directory
-cd kubeverse
+cd kubevia
 
 # Install dependencies
 npm install
@@ -146,4 +146,4 @@ kubevia/
 
 **Yash**  
 - GitHub: [@yashk0505](https://github.com/yashk0505)
-- Repository: [https://github.com/yashk0505/KubeVerse.git](https://github.com/yashk0505/KubeVerse.git)
+- Repository: [https://github.com/yashk0505/KubeVia.git](https://github.com/yashk0505/KubeVia.git)
