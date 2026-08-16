@@ -12,95 +12,70 @@ type NetSubModule = "journey" | "overlay" | "services" | "ingress" | "dns" | "po
 export default function NetworkingPage() {
   const [activeSubModule, setActiveSubModule] = useState<NetSubModule>("journey");
 
-  // Packet Journey State
+  // Submodule 1: Packet Journey State
   const [packetStep, setPacketStep] = useState<PacketStep>("idle");
   const [selectedPodTarget, setSelectedPodTarget] = useState<number>(1);
   const [packetLogs, setPacketLogs] = useState<string[]>([
-    "Ready to initiate packet transmission.",
+    "Data Plane Telemetry Ready. Click 'Send Request' to trace live packet flow.",
   ]);
 
-  // Service Types State
-  const [selectedServiceType, setSelectedServiceType] = useState<ServiceType>("ClusterIP");
-
-  // Ingress Routing State
-  const [ingressPath, setIngressPath] = useState<string>("/api/v1/checkout");
-
-  // DNS State
-  const [dnsQuery, setDnsQuery] = useState("auth-service.production.svc.cluster.local");
-  const [dnsResult, setDnsResult] = useState<string | null>(null);
-
-  // NetworkPolicy State
-  const [allowDbAccess, setAllowDbAccess] = useState(false);
-  const [policyTestStatus, setPolicyTestStatus] = useState<"idle" | "allowed" | "blocked">("idle");
-
-  // VXLAN Overlay Simulation State
+  // Submodule 2: VXLAN Overlay Simulation State
   const [vxlanStep, setVxlanStep] = useState<"idle" | "veth" | "cni0" | "encap" | "wire" | "decap" | "pod2">("idle");
   const [vxlanLogs, setVxlanLogs] = useState<string[]>([
     "VXLAN Tunnel Engine Ready. Click 'Transmit Cross-Node Packet' to initiate encapsulation.",
   ]);
 
-  const startVxlanSimulation = () => {
-    if (vxlanStep !== "idle" && vxlanStep !== "pod2") return;
-    setVxlanStep("veth");
-    setVxlanLogs(["[0.0ms] Pod-1 (10.244.1.5) kernel sends IP packet to default gateway via veth pair."]);
+  // Submodule 3: Service Types State
+  const [selectedServiceType, setSelectedServiceType] = useState<ServiceType>("ClusterIP");
+  const [serviceSimActive, setServiceSimActive] = useState(false);
+  const [serviceTargetPod, setServiceTargetPod] = useState(1);
 
-    setTimeout(() => {
-      setVxlanStep("cni0");
-      setVxlanLogs((p) => ["[0.3ms] cni0 Linux bridge intercepts packet. Determines destination 10.244.2.8 is off-node.", ...p]);
+  // Submodule 4: Ingress Routing State
+  const [ingressPath, setIngressPath] = useState<string>("/api/v1/checkout");
+  const [ingressSimActive, setIngressSimActive] = useState(false);
 
-      setTimeout(() => {
-        setVxlanStep("encap");
-        setVxlanLogs((p) => ["[0.7ms] CNI VXLAN Device (flannel.1 / cilium_vxlan): Prepends VNI=1 + Outer UDP Header (Src: 192.168.1.10, Dst: 192.168.1.20:8472).", ...p]);
+  // Submodule 5: DNS State
+  const [dnsQuery, setDnsQuery] = useState("auth-service.production.svc.cluster.local");
+  const [dnsResult, setDnsResult] = useState<string | null>(null);
+  const [dnsResolving, setDnsResolving] = useState(false);
 
-        setTimeout(() => {
-          setVxlanStep("wire");
-          setVxlanLogs((p) => ["[1.4ms] Physical Underlay Switch routes UDP/8472 packet across data center network fabric.", ...p]);
+  // Submodule 6: NetworkPolicy State
+  const [allowDbAccess, setAllowDbAccess] = useState(false);
+  const [policyTesting, setPolicyTesting] = useState(false);
+  const [policyTestStatus, setPolicyTestStatus] = useState<"idle" | "allowed" | "blocked">("idle");
 
-          setTimeout(() => {
-            setVxlanStep("decap");
-            setVxlanLogs((p) => ["[2.0ms] Node-B (192.168.1.20) Kernel decapsulates outer VXLAN frame. Inner packet exposed.", ...p]);
-
-            setTimeout(() => {
-              setVxlanStep("pod2");
-              setVxlanLogs((p) => ["[2.4ms] ✅ Packet delivered directly to Pod-2 eth0 namespace with original IP intact (10.244.2.8)!", ...p]);
-            }, 700);
-          }, 700);
-        }, 700);
-      }, 700);
-    }, 700);
-  };
-
+  // 1. Packet Journey Simulation
   const startPacketJourney = () => {
     if (packetStep !== "idle" && packetStep !== "response") return;
 
     const randomTarget = Math.floor(Math.random() * 3) + 1;
     setSelectedPodTarget(randomTarget);
     setPacketStep("browser");
-    setPacketLogs([`[0ms] User Browser dispatching GET /api/v1/data`]);
+    setPacketLogs([`[0.0ms] 💻 Client Browser: Dispatching HTTP GET /api/v1/data (TCP SYN/ACK)`]);
 
     setTimeout(() => {
       setPacketStep("ingress");
-      setPacketLogs((p) => [`[4ms] Ingress Controller: TLS terminated, host routing evaluated`, ...p]);
+      setPacketLogs((p) => [`[4.2ms] 🌐 Ingress Controller: Terminated TLS (SSL Handshake 1.2ms), evaluated host rules`, ...p]);
 
       setTimeout(() => {
         setPacketStep("service");
-        setPacketLogs((p) => [`[8ms] K8s Service (ClusterIP): Resolving EndpointSlice targets`, ...p]);
+        setPacketLogs((p) => [`[8.5ms] ⚙️ K8s Service (ClusterIP: 10.96.0.1): Selected endpoint target Pod-${randomTarget}`, ...p]);
 
         setTimeout(() => {
           setPacketStep("dataplane");
-          setPacketLogs((p) => [`[12ms] kube-proxy / eBPF: Executing DNAT to 10.244.${randomTarget}.15`, ...p]);
+          setPacketLogs((p) => [`[12.1ms] ⚡ kube-proxy / eBPF: Executed DNAT rewrite ➔ 10.244.${randomTarget}.15:8080`, ...p]);
 
           setTimeout(() => {
             setPacketStep("pod");
-            setPacketLogs((p) => [`[16ms] Pod-${randomTarget} eth0: Packet received on virtual interface`, ...p]);
+            setPacketLogs((p) => [`[16.8ms] 📦 Pod-${randomTarget} (10.244.${randomTarget}.15): Packet accepted on veth interface`, ...p]);
 
             setTimeout(() => {
               setPacketStep("container");
-              setPacketLogs((p) => [`[20ms] Container Process: HTTP 200 OK generated`, ...p]);
+              setPacketLogs((p) => [`[20.4ms] 🚀 Node.js App Container: Processed request ➔ Generated HTTP 200 OK (3.6ms)`, ...p]);
 
               setTimeout(() => {
                 setPacketStep("response");
-                setPacketLogs((p) => [`[25ms] Response safely returned to user browser (200 OK)`, ...p]);
+                setPacketLogs((p) => [`[25.0ms] ✅ Response 200 OK (2.4KB) successfully returned to Client Browser!`, ...p]);
               }, 800);
             }, 800);
           }, 800);
@@ -109,21 +84,88 @@ export default function NetworkingPage() {
     }, 800);
   };
 
-  const handleDnsLookup = () => {
-    if (dnsQuery.includes("auth-service")) {
-      setDnsResult("10.96.14.88 (ClusterIP VIP)");
-    } else if (dnsQuery.includes("payment")) {
-      setDnsResult("10.96.220.104 (ClusterIP VIP)");
-    } else {
-      setDnsResult("10.96.0.42 (Resolved via CoreDNS 10.96.0.10)");
-    }
+  // 2. VXLAN Simulation
+  const startVxlanSimulation = () => {
+    if (vxlanStep !== "idle" && vxlanStep !== "pod2") return;
+    setVxlanStep("veth");
+    setVxlanLogs(["[0.0ms] 📦 Pod-1 (10.244.1.5) kernel dispatches packet to default gateway (veth0)."]);
+
+    setTimeout(() => {
+      setVxlanStep("cni0");
+      setVxlanLogs((p) => ["[0.4ms] 🔀 cni0 Linux bridge intercepts packet. Determines target 10.244.2.8 is located on remote Node-B.", ...p]);
+
+      setTimeout(() => {
+        setVxlanStep("encap");
+        setVxlanLogs((p) => ["[0.9ms] 🔒 CNI VXLAN Device (flannel.1 / cilium_vxlan): Wraps payload in Outer UDP/8472 Header (Src: 192.168.1.10, Dst: 192.168.1.20).", ...p]);
+
+        setTimeout(() => {
+          setVxlanStep("wire");
+          setVxlanLogs((p) => ["[1.6ms] ⚡ Physical Underlay Network: Transmitting 1,480-byte encapsulated UDP packet across physical switch fabric.", ...p]);
+
+          setTimeout(() => {
+            setVxlanStep("decap");
+            setVxlanLogs((p) => ["[2.1ms] 🔓 Node-B (192.168.1.20) Kernel: Decapsulates outer UDP/8472 header. Inner packet verified.", ...p]);
+
+            setTimeout(() => {
+              setVxlanStep("pod2");
+              setVxlanLogs((p) => ["[2.5ms] ✅ Packet delivered directly to Pod-2 eth0 namespace with original IP intact (10.244.2.8)!", ...p]);
+            }, 700);
+          }, 700);
+        }, 700);
+      }, 700);
+    }, 700);
   };
 
-  const handleTestPolicy = () => {
-    setPolicyTestStatus("idle");
+  // 3. Service Simulation
+  const handleTestServiceRoute = () => {
+    if (serviceSimActive) return;
+    setServiceSimActive(true);
+    const target = Math.floor(Math.random() * 2) + 1;
+    setServiceTargetPod(target);
     setTimeout(() => {
+      setServiceSimActive(false);
+    }, 1800);
+  };
+
+  // 4. Ingress Path Simulation
+  const handleTestIngress = (path: string) => {
+    setIngressPath(path);
+    setIngressSimActive(true);
+    setTimeout(() => {
+      setIngressSimActive(false);
+    }, 1600);
+  };
+
+  // 5. CoreDNS Simulation
+  const handleDnsLookup = () => {
+    if (dnsResolving) return;
+    setDnsResolving(true);
+    setDnsResult(null);
+
+    setTimeout(() => {
+      if (dnsQuery.includes("auth-service")) {
+        setDnsResult("10.96.14.88 (ClusterIP VIP)");
+      } else if (dnsQuery.includes("payment")) {
+        setDnsResult("10.96.220.104 (ClusterIP VIP)");
+      } else if (dnsQuery.includes("checkout")) {
+        setDnsResult("10.96.88.19 (ClusterIP VIP)");
+      } else {
+        setDnsResult("10.96.0.42 (Resolved via CoreDNS 10.96.0.10 in 1.1ms)");
+      }
+      setDnsResolving(false);
+    }, 600);
+  };
+
+  // 6. NetworkPolicy Simulation
+  const handleTestPolicy = () => {
+    if (policyTesting) return;
+    setPolicyTesting(true);
+    setPolicyTestStatus("idle");
+
+    setTimeout(() => {
+      setPolicyTesting(false);
       setPolicyTestStatus(allowDbAccess ? "allowed" : "blocked");
-    }, 400);
+    }, 900);
   };
 
   return (
@@ -142,7 +184,7 @@ export default function NetworkingPage() {
               Packet Journey &amp; Service Mesh
             </h1>
             <p className="font-sans text-sm text-on-surface-variant mt-1">
-              Trace packets from client browsers through Ingress controllers, L4 services, CoreDNS discovery, and zero-trust firewalls.
+              Trace requests across Ingress routers, virtual service VIPs, cross-node VXLAN tunnels, CoreDNS, and zero-trust firewalls.
             </p>
           </div>
 
@@ -182,7 +224,7 @@ export default function NetworkingPage() {
                 <div>
                   <h2 className="font-display text-xl font-bold text-white">Live Packet Journey Simulation</h2>
                   <p className="font-sans text-xs text-on-surface-variant mt-0.5">
-                    Click Send Request to watch a packet traverse the complete Kubernetes networking data plane in real-time.
+                    Click Send Request to watch a live packet flow across the 6-stage Kubernetes data plane.
                   </p>
                 </div>
                 <button
@@ -194,72 +236,99 @@ export default function NetworkingPage() {
                 </button>
               </div>
 
-              {/* Packet Pipeline Diagram */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 pt-2">
-                {[
-                  { key: "browser", title: "1. Browser", desc: "GET /api/v1/data", icon: "💻" },
-                  { key: "ingress", title: "2. Ingress", desc: "TLS & L7 Router", icon: "🌐" },
-                  { key: "service", title: "3. Service", desc: "ClusterIP VIP", icon: "⚙️" },
-                  { key: "dataplane", title: "4. Dataplane", desc: "DNAT iptables/eBPF", icon: "⚡" },
-                  { key: "pod", title: "5. Pod eth0", desc: `Target: Pod-${selectedPodTarget}`, icon: "📦" },
-                  { key: "container", title: "6. Container", desc: "HTTP 200 OK", icon: "🚀" },
-                ].map((step, idx) => {
-                  const isActive = packetStep === step.key;
-                  const isPassed =
-                    (packetStep === "ingress" && idx === 0) ||
-                    (packetStep === "service" && idx <= 1) ||
-                    (packetStep === "dataplane" && idx <= 2) ||
-                    (packetStep === "pod" && idx <= 3) ||
-                    (packetStep === "container" && idx <= 4) ||
-                    (packetStep === "response");
+              {/* Packet Flow Pipeline with Visual Connectors */}
+              <div className="relative">
+                {/* SVG Flow Connecting Beam */}
+                <svg className="hidden md:block absolute top-1/2 left-0 w-full h-8 -translate-y-1/2 pointer-events-none z-0">
+                  <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="rgba(255,255,255,0.1)" strokeWidth="2" strokeDasharray="4 4" />
+                  {packetStep !== "idle" && (
+                    <line
+                      x1="5%" y1="50%" x2="95%" y2="50%"
+                      stroke="#00ffc2"
+                      strokeWidth="2.5"
+                      strokeDasharray="8 8"
+                      className="animate-pulse"
+                    />
+                  )}
+                </svg>
 
-                  return (
-                    <div
-                      key={step.key}
-                      className={`p-4 rounded-xl border font-mono text-xs text-center transition-all duration-300 relative ${
-                        isActive
-                          ? "bg-success-glow/20 border-success-glow text-success-glow shadow-[0_0_25px_rgba(0,255,194,0.35)] scale-105"
-                          : isPassed
-                          ? "bg-surface-container border-success-glow/40 text-white"
-                          : "bg-surface-container/50 border-white/5 text-on-surface-variant opacity-60"
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{step.icon}</div>
-                      <div className="font-bold text-[11px]">{step.title}</div>
-                      <div className="text-[9px] text-on-surface-variant mt-0.5">{step.desc}</div>
-                      {isActive && (
-                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-success-glow text-black font-bold text-[8px] animate-bounce">
-                          ACTIVE
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 pt-2 relative z-10">
+                  {[
+                    { key: "browser", title: "1. Browser", desc: "GET /api/v1/data", icon: "💻" },
+                    { key: "ingress", title: "2. Ingress", desc: "TLS & L7 Router", icon: "🌐" },
+                    { key: "service", title: "3. Service", desc: "ClusterIP VIP", icon: "⚙️" },
+                    { key: "dataplane", title: "4. Dataplane", desc: "DNAT iptables/eBPF", icon: "⚡" },
+                    { key: "pod", title: "5. Pod eth0", desc: `Target: Pod-${selectedPodTarget}`, icon: "📦" },
+                    { key: "container", title: "6. Container", desc: "HTTP 200 OK", icon: "🚀" },
+                  ].map((step, idx) => {
+                    const isActive = packetStep === step.key;
+                    const isPassed =
+                      (packetStep === "ingress" && idx === 0) ||
+                      (packetStep === "service" && idx <= 1) ||
+                      (packetStep === "dataplane" && idx <= 2) ||
+                      (packetStep === "pod" && idx <= 3) ||
+                      (packetStep === "container" && idx <= 4) ||
+                      (packetStep === "response");
+
+                    return (
+                      <div
+                        key={step.key}
+                        className={`p-4 rounded-xl border font-mono text-xs text-center transition-all duration-300 relative ${
+                          isActive
+                            ? "bg-success-glow/20 border-success-glow text-success-glow shadow-[0_0_25px_rgba(0,255,194,0.35)] scale-105"
+                            : isPassed
+                            ? "bg-surface-container border-success-glow/40 text-white"
+                            : "bg-surface-container/50 border-white/5 text-on-surface-variant opacity-60"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">{step.icon}</div>
+                        <div className="font-bold text-[11px]">{step.title}</div>
+                        <div className="text-[9px] text-on-surface-variant mt-0.5">{step.desc}</div>
+                        {isActive && (
+                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-success-glow text-black font-bold text-[8px] animate-bounce">
+                            PACKET HERE
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Live Target Pod Fleet */}
+              {/* Target Endpoint Pool with Flow Glow */}
               <div className="border-t border-white/10 pt-6">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-mono text-xs text-primary font-bold">ENDPOINTSLICE TARGET POOL</span>
-                  <span className="font-mono text-[10px] text-on-surface-variant">Round-Robin Load Balancing</span>
+                <div className="flex justify-between items-center mb-3 font-mono text-xs">
+                  <span className="text-primary font-bold flex items-center gap-2">
+                    <span>ENDPOINTSLICE TARGET POOL</span>
+                    <span className="text-[10px] text-on-surface-variant font-normal">(Dynamic Load Balancing)</span>
+                  </span>
+                  <span className="text-data-flow text-[11px]">
+                    {packetStep !== "idle" ? `Flow Status: Dispatched ➔ Pod-${selectedPodTarget}` : "Awaiting request"}
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
                   {[1, 2, 3].map((podId) => {
                     const isTargeted = selectedPodTarget === podId && (packetStep === "pod" || packetStep === "container");
                     return (
                       <div
                         key={podId}
-                        className={`p-4 rounded-xl border font-mono text-xs transition-all duration-300 ${
+                        className={`p-4 rounded-xl border transition-all duration-300 relative ${
                           isTargeted
-                            ? "border-success-glow bg-success-glow/15 shadow-[0_0_20px_rgba(0,255,194,0.3)] scale-102"
-                            : "border-white/10 bg-surface-container"
+                            ? "border-success-glow bg-success-glow/20 shadow-[0_0_25px_rgba(0,255,194,0.4)] scale-105"
+                            : "border-white/10 bg-surface-container text-white"
                         }`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-bold text-white">pod-app-instance-{podId}</span>
+                          <span className="font-bold">pod-instance-0{podId}</span>
                           <span className="text-[10px] text-success-glow">● Healthy</span>
                         </div>
-                        <div className="text-[10px] text-on-surface-variant mt-1">IP: 10.244.{podId}.15</div>
+                        <div className="text-[10px] text-on-surface-variant mt-1">IP: 10.244.{podId}.15:8080</div>
+                        {isTargeted && (
+                          <div className="mt-2 text-[9px] text-success-glow font-bold animate-pulse">
+                            ➔ Incoming Packet Received (DNAT Verified)
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -268,11 +337,12 @@ export default function NetworkingPage() {
 
               {/* Packet Telemetry Logs */}
               <div className="rounded-xl bg-black/60 border border-white/10 p-4 font-mono text-xs space-y-1 max-h-36 overflow-y-auto">
-                <div className="text-[10px] text-on-surface-variant border-b border-white/10 pb-1 uppercase font-bold">
-                  Data Plane Telemetry Stream
+                <div className="text-[10px] text-on-surface-variant border-b border-white/10 pb-1 uppercase font-bold flex justify-between">
+                  <span>Data Plane Telemetry Stream</span>
+                  <span className="text-success-glow">RTT: ~25.0ms</span>
                 </div>
                 {packetLogs.map((log, i) => (
-                  <div key={i} className="text-success-glow text-[11px]">
+                  <div key={i} className="text-success-glow text-[11px] leading-relaxed">
                     {log}
                   </div>
                 ))}
@@ -342,7 +412,7 @@ export default function NetworkingPage() {
                     <div className="text-[8px] text-cyan/80 mt-1">{step.desc}</div>
                     {isCurrent && (
                       <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-cyan text-black font-bold text-[8px] animate-bounce">
-                        PACKET HERE
+                        FLOW
                       </div>
                     )}
                   </div>
@@ -458,14 +528,68 @@ export default function NetworkingPage() {
               ))}
             </div>
 
-            <div className="glass-panel rounded-2xl p-6 border border-white/10 tech-border space-y-4">
-              <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                <span className="font-mono text-xs text-primary font-bold uppercase">{selectedServiceType} Specification</span>
-                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/30">
-                  K8s Core V1
-                </span>
+            <div className="glass-panel rounded-2xl p-6 border border-white/10 tech-border space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-3">
+                <div>
+                  <span className="font-mono text-xs text-primary font-bold uppercase">{selectedServiceType} Specification &amp; Flow</span>
+                  <div className="text-[11px] font-sans text-on-surface-variant">Click below to test live traffic routing.</div>
+                </div>
+                <button
+                  onClick={handleTestServiceRoute}
+                  disabled={serviceSimActive}
+                  className="px-4 py-2 rounded-xl bg-primary text-black font-mono text-xs font-bold uppercase hover:bg-primary/80 transition-all shadow-[0_0_15px_rgba(0,210,255,0.3)] disabled:opacity-50"
+                >
+                  {serviceSimActive ? "⚡ Routing Traffic..." : "▶ Test Traffic Route"}
+                </button>
               </div>
 
+              {/* Interactive Visual Traffic Flow Chart */}
+              <div className="p-4 rounded-xl bg-black/40 border border-white/10 font-mono text-xs space-y-3">
+                <div className="text-[10px] text-on-surface-variant uppercase font-bold">Live Traffic Flow Diagram</div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center text-center">
+                  {/* Origin */}
+                  <div className="p-3 rounded-lg bg-surface-container border border-white/10">
+                    <div className="text-white font-bold">
+                      {selectedServiceType === "ClusterIP" ? "Client Pod (10.244.0.4)" : "Public Client (Browser)"}
+                    </div>
+                    <div className="text-[9px] text-on-surface-variant mt-0.5">Origin of Request</div>
+                  </div>
+
+                  {/* Flow Arrow 1 */}
+                  <div className={`font-bold transition-all ${serviceSimActive ? "text-primary animate-pulse scale-110" : "text-on-surface-variant"}`}>
+                    ────────►
+                  </div>
+
+                  {/* Service Entrypoint */}
+                  <div className={`p-3 rounded-lg border transition-all ${
+                    serviceSimActive ? "border-primary bg-primary/20 text-primary shadow-[0_0_15px_rgba(0,210,255,0.3)]" : "border-white/10 bg-surface-container text-white"
+                  }`}>
+                    <div className="font-bold">
+                      {selectedServiceType === "ClusterIP"
+                        ? "ClusterIP: 10.96.0.1:80"
+                        : selectedServiceType === "NodePort"
+                        ? "NodePort :30080"
+                        : selectedServiceType === "LoadBalancer"
+                        ? "Cloud NLB: 198.51.100.1"
+                        : "CNAME: api.stripe.com"}
+                    </div>
+                    <div className="text-[9px] text-on-surface-variant mt-0.5">Service VIP Endpoint</div>
+                  </div>
+
+                  {/* Destination */}
+                  <div className={`p-3 rounded-lg border transition-all ${
+                    serviceSimActive ? "border-success-glow bg-success-glow/20 text-success-glow shadow-[0_0_15px_rgba(0,255,194,0.3)]" : "border-white/10 bg-surface-container text-white"
+                  }`}>
+                    <div className="font-bold">
+                      {selectedServiceType === "ExternalName" ? "External SaaS Cloud" : `Pod-0${serviceTargetPod} (10.244.${serviceTargetPod}.15)`}
+                    </div>
+                    <div className="text-[9px] text-on-surface-variant mt-0.5">Target Destination (200 OK)</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* YAML Code Spec */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div className="rounded-xl bg-black/60 border border-white/10 p-4 font-mono text-xs text-on-surface-variant leading-relaxed">
                   <span className="text-secondary font-bold">apiVersion:</span> v1{"\n"}
@@ -523,33 +647,54 @@ export default function NetworkingPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-surface-container border border-white/10 space-y-2">
-                <div className="flex justify-between font-mono text-xs">
-                  <span>Test Request Path:</span>
+              <div className="p-4 rounded-xl bg-surface-container border border-white/10 space-y-3 font-mono text-xs">
+                <div className="flex justify-between items-center">
+                  <span>Click path to test live L7 routing:</span>
                   <span className="text-cyan font-bold">https://api.mycompany.com{ingressPath}</span>
                 </div>
-                <div className="flex gap-2">
-                  {["/api/v1/checkout", "/api/v1/auth", "/app/dashboard"].map((path) => (
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { path: "/api/v1/checkout", label: "🛒 /checkout" },
+                    { path: "/api/v1/auth", label: "🔑 /auth" },
+                    { path: "/app/dashboard", label: "📊 /dashboard" },
+                  ].map((item) => (
                     <button
-                      key={path}
-                      onClick={() => setIngressPath(path)}
-                      className={`px-3 py-1.5 rounded font-mono text-xs border ${
-                        ingressPath === path ? "bg-cyan/20 border-cyan text-cyan font-bold" : "bg-black/40 border-white/10 text-on-surface-variant"
+                      key={item.path}
+                      onClick={() => handleTestIngress(item.path)}
+                      className={`px-4 py-2 rounded-xl font-mono text-xs border transition-all ${
+                        ingressPath === item.path
+                          ? "bg-cyan/20 border-cyan text-cyan font-bold shadow-[0_0_15px_rgba(0,210,255,0.3)]"
+                          : "bg-black/40 border-white/10 text-on-surface-variant hover:text-white"
                       }`}
                     >
-                      {path}
+                      {item.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="p-5 rounded-xl bg-black/60 border border-cyan/40 font-mono text-xs space-y-2">
-                <div className="text-cyan font-bold">Ingress Route Resolution:</div>
-                <div className="text-[11px] text-white">
-                  Target Service:{" "}
-                  <span className="text-success-glow font-bold">
-                    {ingressPath.includes("checkout") ? "checkout-service:8080 (3 Replicas)" : ingressPath.includes("auth") ? "auth-service:4000 (2 Replicas)" : "frontend-service:80 (5 Replicas)"}
+              {/* Visual Path Flow */}
+              <div className="p-5 rounded-xl bg-black/60 border border-cyan/40 font-mono text-xs space-y-3">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <span className="text-cyan font-bold">L7 Ingress Routing Engine:</span>
+                  <span className={ingressSimActive ? "text-success-glow font-bold animate-pulse" : "text-on-surface-variant"}>
+                    {ingressSimActive ? "⚡ Flowing Traffic..." : "● Synced"}
                   </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-lg bg-surface-container border border-white/10">
+                    <div className="text-white font-bold">TLS Termination</div>
+                    <div className="text-[10px] text-cyan mt-0.5">Let&apos;s Encrypt SSL</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-surface-container border border-cyan/40 text-cyan">
+                    <div className="font-bold">Path Match: {ingressPath}</div>
+                    <div className="text-[10px] text-on-surface-variant mt-0.5">Regex Evaluator</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-success-glow/20 border border-success-glow text-success-glow font-bold">
+                    <div>{ingressPath.includes("checkout") ? "checkout-svc:8080" : ingressPath.includes("auth") ? "auth-svc:4000" : "frontend-svc:80"}</div>
+                    <div className="text-[9px] text-on-surface-variant font-normal mt-0.5">Selected Backend Pool</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -566,27 +711,45 @@ export default function NetworkingPage() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 font-mono text-xs">
               <input
                 type="text"
                 value={dnsQuery}
                 onChange={(e) => setDnsQuery(e.target.value)}
-                className="flex-1 rounded-xl bg-surface-container border border-white/10 px-4 py-2.5 font-mono text-xs text-white focus:outline-none focus:border-desired-state"
+                className="flex-1 rounded-xl bg-surface-container border border-white/10 px-4 py-2.5 text-white focus:outline-none focus:border-desired-state"
                 placeholder="Enter service DNS query..."
               />
               <button
                 onClick={handleDnsLookup}
-                className="px-6 py-2.5 rounded-xl bg-desired-state/20 border border-desired-state text-desired-state font-mono text-xs font-bold uppercase hover:bg-desired-state/30 transition-all shadow-[0_0_15px_rgba(189,0,255,0.25)]"
+                disabled={dnsResolving}
+                className="px-6 py-2.5 rounded-xl bg-desired-state/20 border border-desired-state text-desired-state font-bold uppercase hover:bg-desired-state/30 transition-all shadow-[0_0_15px_rgba(189,0,255,0.25)] disabled:opacity-50"
               >
-                Resolve DNS
+                {dnsResolving ? "⚡ Querying UDP/53..." : "Resolve DNS"}
               </button>
             </div>
 
+            {/* Visual DNS Query Flow */}
             {dnsResult && (
-              <div className="rounded-xl bg-black/60 border border-desired-state/40 p-4 font-mono text-xs space-y-1 animate-scaleIn">
-                <div className="text-desired-state font-bold">✓ CoreDNS Response (Authoritative Answer)</div>
-                <div className="text-white">Query: {dnsQuery}</div>
-                <div className="text-success-glow font-bold">Address: {dnsResult}</div>
+              <div className="rounded-xl bg-black/60 border border-desired-state/40 p-5 font-mono text-xs space-y-3 animate-scaleIn">
+                <div className="text-desired-state font-bold flex justify-between">
+                  <span>✓ CoreDNS Authoritative Answer (1.1ms latency)</span>
+                  <span className="text-[10px] text-success-glow">● NOERROR</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded bg-surface-container border border-white/10">
+                    <div className="text-white font-bold">Query: UDP:53</div>
+                    <div className="text-[9px] text-on-surface-variant mt-0.5">{dnsQuery}</div>
+                  </div>
+                  <div className="p-3 rounded bg-desired-state/20 border border-desired-state text-desired-state font-bold">
+                    <div>CoreDNS Server</div>
+                    <div className="text-[9px] text-white mt-0.5">10.96.0.10</div>
+                  </div>
+                  <div className="p-3 rounded bg-success-glow/20 border border-success-glow text-success-glow font-bold">
+                    <div>Resolved A-Record</div>
+                    <div className="text-[9px] text-white mt-0.5">{dnsResult}</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -598,12 +761,12 @@ export default function NetworkingPage() {
             <div>
               <h2 className="font-display text-xl font-bold text-white">NetworkPolicy Zero-Trust Firewall</h2>
               <p className="font-sans text-xs text-on-surface-variant mt-1">
-                By default, all pods can talk to all pods. NetworkPolicies enforce zero-trust firewalls using pod label selectors.
+                By default, all pods can talk to all pods. NetworkPolicies enforce zero-trust microsegmentation using pod label selectors.
               </p>
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container border border-white/10">
-              <span className="font-mono text-xs text-white">Allow Frontend Pods to access Database Pods:</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-surface-container border border-white/10">
+              <span className="font-mono text-xs text-white">Allow Frontend Pods to access Database Pods (Port 5432):</span>
               <button
                 onClick={() => setAllowDbAccess(!allowDbAccess)}
                 className={`px-4 py-1.5 rounded-lg font-mono text-xs font-bold transition-all ${
@@ -612,16 +775,51 @@ export default function NetworkingPage() {
                     : "bg-error-pulse/20 border border-error-pulse text-error-pulse"
                 }`}
               >
-                {allowDbAccess ? "POLICY: ALLOWED (Whitelist)" : "POLICY: DENIED (Default Isolation)"}
+                {allowDbAccess ? "POLICY: ALLOWED (Whitelist Rule)" : "POLICY: DENIED (Default Isolation)"}
               </button>
+            </div>
+
+            {/* Visual Firewall Packet Gate */}
+            <div className="p-5 rounded-xl bg-black/50 border border-white/10 font-mono text-xs space-y-4">
+              <div className="text-[10px] text-on-surface-variant uppercase font-bold">Live Firewall Transmission Gate</div>
+
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center text-center">
+                <div className="p-3 rounded bg-surface-container border border-cyan/30 text-cyan">
+                  <div className="font-bold">Frontend Pod</div>
+                  <div className="text-[9px] text-on-surface-variant">role: frontend</div>
+                </div>
+
+                <div className={`font-bold transition-all ${policyTesting ? "text-amber-400 animate-pulse" : "text-on-surface-variant"}`}>
+                  ───► [Port 5432] ───►
+                </div>
+
+                <div className={`p-3 rounded border font-bold transition-all ${
+                  allowDbAccess
+                    ? "border-success-glow bg-success-glow/20 text-success-glow"
+                    : "border-error-pulse bg-error-pulse/20 text-error-pulse"
+                }`}>
+                  <div>{allowDbAccess ? "🛡️ Firewall: OPEN" : "⛔ Firewall: DROP"}</div>
+                  <div className="text-[9px] text-on-surface-variant mt-0.5">{allowDbAccess ? "Rule #1 Matched" : "No Ingress Rule"}</div>
+                </div>
+
+                <div className={`font-bold transition-all ${policyTesting ? "text-amber-400 animate-pulse" : "text-on-surface-variant"}`}>
+                  ────────►
+                </div>
+
+                <div className="p-3 rounded bg-surface-container border border-purple-400/40 text-purple-400">
+                  <div className="font-bold">PostgreSQL DB</div>
+                  <div className="text-[9px] text-on-surface-variant">role: db (5432)</div>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-center pt-2">
               <button
                 onClick={handleTestPolicy}
-                className="px-6 py-2.5 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs font-bold uppercase hover:bg-amber-400/30 transition-all"
+                disabled={policyTesting}
+                className="px-6 py-2.5 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-400 font-mono text-xs font-bold uppercase hover:bg-amber-400/30 transition-all disabled:opacity-50"
               >
-                ⚡ Test Network Connection (Frontend ➔ DB)
+                {policyTesting ? "⚡ Testing Connection..." : "⚡ Test Network Connection (Frontend ➔ DB)"}
               </button>
             </div>
 
@@ -648,54 +846,36 @@ export default function NetworkingPage() {
               <div className="text-2xl">🔒</div>
               <h3 className="font-display text-lg font-bold text-white">1. PCI-DSS Compliance Isolation</h3>
               <p className="font-sans text-xs text-on-surface-variant leading-relaxed">
-                NetworkPolicies isolate payment tokenization pods in a dedicated namespace, allowing ingress ONLY from the verified API Gateway.
+                Use zero-trust NetworkPolicies to completely isolate payment gateway pods from public web nodes, preventing lateral movement in case of security breaches.
               </p>
               <div className="pt-2 font-mono text-[10px] text-success-glow">
-                ✓ Zero lateral movement attack vectors
+                ✓ Default Deny ingress / egress
               </div>
             </div>
 
             <div className="glass-panel p-6 rounded-2xl border border-cyan/30 space-y-3">
-              <div className="text-2xl">⚖️</div>
-              <h3 className="font-display text-lg font-bold text-white">2. Canary Traffic Splitting</h3>
+              <div className="text-2xl">⚡</div>
+              <h3 className="font-display text-lg font-bold text-white">2. eBPF High-Performance Routing</h3>
               <p className="font-sans text-xs text-on-surface-variant leading-relaxed">
-                Ingress annotations split user traffic: 90% goes to production v1.0 and 10% to canary v2.0 to test performance under live production load.
+                Modern CNIs like Cilium bypass iptables bottlenecks by injecting eBPF bytecode directly into Linux socket layers, reducing packet latency by up to 50%.
               </p>
               <div className="pt-2 font-mono text-[10px] text-cyan">
-                ✓ Zero risk releases
+                ✓ Line-rate 100Gbps packet forwarding
               </div>
             </div>
 
             <div className="glass-panel p-6 rounded-2xl border border-desired-state/30 space-y-3">
               <div className="text-2xl">🌐</div>
-              <h3 className="font-display text-lg font-bold text-white">3. Multi-Cluster Service Discovery</h3>
+              <h3 className="font-display text-lg font-bold text-white">3. Global Multi-Cluster Mesh</h3>
               <p className="font-sans text-xs text-on-surface-variant leading-relaxed">
-                CoreDNS forwarding connects on-prem Kubernetes clusters to cloud AWS/GCP clusters for hybrid multi-cloud failover.
+                Connect Kubernetes clusters in different cloud regions via WireGuard encrypted tunnels, enabling cross-region service discovery and seamless failover.
               </p>
               <div className="pt-2 font-mono text-[10px] text-desired-state">
-                ✓ Seamless hybrid cloud routing
+                ✓ End-to-end mTLS zero-trust mesh
               </div>
             </div>
           </div>
         )}
-
-        {/* Bottom Module Navigation */}
-        <div className="border-t border-white/10 pt-8 flex justify-between items-center font-mono text-xs">
-          <Link
-            href="/kubernetes"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container border border-white/10 text-on-surface-variant hover:text-white hover:border-white/30 transition-all module-nav-card"
-          >
-            <span>←</span>
-            <span>Module 02 Kubernetes</span>
-          </Link>
-          <Link
-            href="/topology"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-desired-state/15 border border-desired-state/40 text-desired-state hover:bg-desired-state/25 hover:border-desired-state transition-all font-bold module-nav-card shadow-[0_0_15px_rgba(189,0,255,0.2)]"
-          >
-            <span>Next: Module 04 Topology</span>
-            <span>→</span>
-          </Link>
-        </div>
       </div>
 
       <Footer />
