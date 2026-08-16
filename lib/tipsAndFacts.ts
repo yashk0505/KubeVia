@@ -12,7 +12,7 @@ export interface RouteMeta {
 
 export const ROUTE_LOADING_META: Record<string, RouteMeta> = {
   "/": {
-    title: "INITIALIZING KUBEVERSE",
+    title: "INITIALIZING KUBEVIA",
     subtitle: "Preparing interactive cloud native experience",
     tag: "CORE // COMMAND CENTER",
   },

@@ -1,9 +1,8 @@
-# 🌐 KubeVerse — Motion-First Cloud Native Visual Laboratory
+# 🌐 KubeVia — Motion-First Cloud Native Visual Laboratory
 
 > **See • Understand • Interact**  
 > An interactive, cinematic visual laboratory designed to help engineers, students, and architects master Linux Containers, Docker, Kubernetes, and Cloud Native Networking through live simulations rather than text walls.
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/yashk0505/kubeverse/blob/main/LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8?logo=tailwind-css)](https://tailwindcss.com/)
@@ -12,10 +11,10 @@
 
 ## 🚀 Interactive Curriculum & Modules
 
-KubeVerse breaks down complex distributed systems into 6 interactive modules with live controls, step debuggers, and real-world scenarios:
+KubeVia breaks down complex distributed systems into 6 interactive modules with live controls, step debuggers, and real-world scenarios:
 
 ```
-KUBEVERSE
+KUBEVIA
 ├── 01. EXPLORE JOURNEY (/explore)
 │   └── 12-Scene sequential cinematic learning odyssey from bare-metal to self-healing.
 │
@@ -87,7 +86,7 @@ KUBEVERSE
 
 ```bash
 # Clone the repository
-git clone https://github.com/yashk0505/kubeverse.git
+git clone https://github.com/yashk0505/KubeVerse.git
 
 # Enter project directory
 cd kubeverse
@@ -104,7 +103,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Building for Production
 
 ```bash
-# Compile and build static application
+# Compile and build application
 npm run build
 
 # Start production server
@@ -116,7 +115,7 @@ npm run start
 ## 📂 Project Structure
 
 ```
-kubeverse/
+kubevia/
 ├── app/                  # Next.js App Router routes
 │   ├── layout.tsx        # Root layout with HUD sidebar, nav, & transition loader
 │   ├── page.tsx          # Main homepage curriculum & feature showcases
@@ -140,12 +139,6 @@ kubeverse/
 ├── tailwind.config.ts    # Design tokens & color palettes
 └── package.json
 ```
-
----
-
-## 📜 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 

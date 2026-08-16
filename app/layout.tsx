@@ -28,7 +28,7 @@ const display = Archivo_Black({
 });
 
 export const metadata: Metadata = {
-  title: "KubeVerse — Learn Kubernetes by Watching It Happen",
+  title: "KubeVia — Learn Kubernetes by Watching It Happen",
   description:
     "An interactive, visual introduction to containers and Kubernetes. No docs, no jargon walls — just watch it run.",
 };

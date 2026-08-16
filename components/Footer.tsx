@@ -9,7 +9,7 @@ export default function Footer() {
           href="/"
           className="font-display text-xl font-bold text-white hover:text-primary transition-colors tracking-tight"
         >
-          KubeVerse
+          KubeVia
         </Link>
 
         {/* Center Links */}
@@ -35,7 +35,7 @@ export default function Footer() {
 
         {/* Right Status / Engine Text */}
         <div className="font-mono text-xs text-primary/80">
-          KubeVerse Engine
+          KubeVia Engine
         </div>
       </div>
     </footer>

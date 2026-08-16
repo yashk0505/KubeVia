@@ -90,11 +90,11 @@ export default function HomePage() {
         <div className="max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 font-mono text-xs text-primary shadow-[0_0_20px_rgba(0,210,255,0.2)]">
             <span className="h-2 w-2 rounded-full bg-success-glow animate-pulse" />
-            <span>KUBEVERSE // MOTION-FIRST VISUAL LABORATORY</span>
+            <span>KUBEVIA // MOTION-FIRST VISUAL LABORATORY</span>
           </div>
 
           <h1 className="font-display text-5xl sm:text-7xl font-extrabold uppercase tracking-tight text-white drop-shadow-[0_0_35px_rgba(0,210,255,0.3)]">
-            KUBE<span className="text-primary">VERSE</span>
+            KUBE<span className="text-primary">VIA</span>
           </h1>
 
           <p className="mx-auto max-w-2xl font-sans text-lg sm:text-xl text-on-surface-variant leading-relaxed">

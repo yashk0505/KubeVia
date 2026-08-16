@@ -42,7 +42,7 @@ export default function Nav() {
               KV
             </span>
             <span>
-              KUBE<span className="text-secondary-container">VERSE</span>
+              KUBE<span className="text-secondary-container">VIA</span>
             </span>
           </Link>
 

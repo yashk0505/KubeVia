@@ -50,7 +50,7 @@ export default function PlaygroundPage() {
   const [selectedType, setSelectedType] = useState<AppType>("web");
   const [traffic, setTraffic] = useState(20);
   const [logs, setLogs] = useState<Array<{ text: string; type: "info" | "success" | "warn" | "error"; time: string }>>([
-    { text: "KubeVerse Sandbox Engine Initialized.", type: "info", time: "00:00:00" },
+    { text: "KubeVia Sandbox Engine Initialized.", type: "info", time: "00:00:00" },
     { text: "6 Nodes discovered. Status: Ready.", type: "success", time: "00:00:01" },
     { text: "Awaiting deployment instructions...", type: "info", time: "00:00:02" },
   ]);

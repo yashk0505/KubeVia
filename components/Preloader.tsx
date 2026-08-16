@@ -57,7 +57,7 @@ export default function Preloader() {
         <KubeLoader
           mode="initial"
           destination="/"
-          customTitle="INITIALIZING KUBEVERSE"
+          customTitle="INITIALIZING KUBEVIA"
           customSubtitle="Preparing interactive cloud native laboratory"
         />
       </div>

@@ -42,7 +42,7 @@ export default function HudSidebar() {
               </div>
               <div>
                 <h2 className="font-mono text-[11px] font-bold uppercase tracking-wider text-primary-container">
-                  KubeVerse HUD
+                  KubeVia HUD
                 </h2>
                 <div className="flex items-center gap-1.5 text-[9px] font-mono text-success-glow">
                   <span className="h-1.5 w-1.5 rounded-full bg-success-glow animate-pulse" />
