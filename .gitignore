@@ -3,6 +3,6 @@ node_modules
 out
 .env*.local
 .vercel
-*.log
 .DS_Store
 updates/
+*.tsbuildinfo
